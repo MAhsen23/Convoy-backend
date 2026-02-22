@@ -51,7 +51,10 @@ export const authenticate = async (req, res, next) => {
 };
 
 /**
- * Role-based authorization middleware
+ * Admin authorization – use when you add a dashboard.
+ * Admins are managed separately (e.g. admins table or env list); not in users.role.
+ * For now this is a placeholder: no admins exist, so authorize('admin') will 403.
+ * When needed: add e.g. isAdmin(userId) and call it here.
  */
 export const authorize = (...roles) => {
     return (req, res, next) => {
@@ -63,8 +66,7 @@ export const authorize = (...roles) => {
                 data: null
             });
         }
-
-        if (!roles.includes(req.user.role)) {
+        if (roles.includes('admin')) {
             return res.status(403).json({
                 success: false,
                 status: 'ERROR',
@@ -72,7 +74,6 @@ export const authorize = (...roles) => {
                 data: null
             });
         }
-
         next();
     };
 };

@@ -367,13 +367,16 @@ export const getProfileByUniqueId = async (req, res) => {
 
 /**
  * PATCH /api/auth/profile
- * Body: { username?, profile_picture_url?, status? }
+ * Body: { username?, profile_picture_url?, status?, udid?, device_info?, push_token? }
  */
 export const updateProfile = async (req, res) => {
     try {
-        const { username, profile_picture_url, status } = req.body;
+        const { username, profile_picture_url, status, udid, device_info, push_token } = req.body;
         const updates = {};
         if (profile_picture_url !== undefined) updates.profile_picture_url = profile_picture_url;
+        if (udid !== undefined) updates.udid = udid;
+        if (device_info !== undefined) updates.device_info = device_info;
+        if (push_token !== undefined) updates.push_token = push_token;
         if (status !== undefined) {
             if (!['online', 'driving', 'offline'].includes(status)) {
                 return res.status(400).json({
@@ -423,7 +426,7 @@ export const updateProfile = async (req, res) => {
         return res.status(200).json({
             success: true,
             status: 'OK',
-            message: 'Profile updated',
+            message: 'Profile has been updated',
             data: { user: profile }
         });
     } catch (err) {

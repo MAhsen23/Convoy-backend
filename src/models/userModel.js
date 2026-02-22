@@ -2,7 +2,7 @@ import db from '../config/db.js';
 
 /**
  * User model - CRUD and lookups for users table.
- * unique_id: 9-digit public ID for search/share.
+ * unique_id: 7-digit public ID for search/share.
  * username: unique case-insensitive via username_normalized.
  */
 
@@ -13,8 +13,10 @@ const USER_PUBLIC_FIELDS = [
     'email',
     'phone',
     'profile_picture_url',
+    'udid',
+    'device_info',
+    'push_token',
     'status',
-    'role',
     'created_at',
     'updated_at'
 ];
@@ -56,11 +58,11 @@ export const getUserById = async (id) => {
 };
 
 /**
- * Get user by 9-digit unique_id (public ID for search)
+ * Get user by 7-digit unique_id (public ID for search)
  */
 export const getByUniqueId = async (uniqueId) => {
     const id = parseInt(uniqueId, 10);
-    if (!Number.isInteger(id) || id < 100000000 || id > 999999999) {
+    if (!Number.isInteger(id) || id < 1000000 || id > 9999999) {
         return null;
     }
     const { data, error } = await db
@@ -151,8 +153,7 @@ export const createUser = async (payload) => {
         phone,
         password_hash,
         profile_picture_url,
-        status = 'offline',
-        role = 'user'
+        status = 'offline'
     } = payload;
 
     const { data, error } = await db
@@ -164,8 +165,7 @@ export const createUser = async (payload) => {
             phone: phone || null,
             password_hash: password_hash || null,
             profile_picture_url: profile_picture_url || null,
-            status,
-            role
+            status
         })
         .select()
         .single();
@@ -182,6 +182,9 @@ export const updateUser = async (userId, updates) => {
         'username',
         'username_normalized',
         'profile_picture_url',
+        'udid',
+        'device_info',
+        'push_token',
         'status',
         'password_hash'
     ];

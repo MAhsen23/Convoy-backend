@@ -9,8 +9,7 @@ const JWT_EXPIRY = config.jwtExpiry;
  */
 export const generateToken = (user) => {
     const payload = {
-        id: user.id,
-        role: user.role
+        id: user.id
     };
 
     return jwt.sign(payload, JWT_SECRET, {
