@@ -6,7 +6,7 @@ CREATE SEQUENCE IF NOT EXISTS user_unique_id_seq
   NO CYCLE;
 
 CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id SERIAL PRIMARY KEY,
   unique_id INTEGER NOT NULL UNIQUE DEFAULT nextval('user_unique_id_seq'),
   username TEXT NOT NULL,
   username_normalized TEXT NOT NULL UNIQUE,
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS api_logs (
   url TEXT NOT NULL,
   path TEXT,
   status_code INTEGER,
-  user_id UUID REFERENCES users(id),
+  user_id INTEGER REFERENCES users(id),
   ip_address VARCHAR(45),
   user_agent TEXT,
   request_body JSONB,

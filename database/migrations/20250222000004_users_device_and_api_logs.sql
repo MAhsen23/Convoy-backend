@@ -11,7 +11,7 @@ CREATE TABLE api_logs (
     url TEXT NOT NULL,
     path TEXT,
     status_code INTEGER,
-    user_id UUID REFERENCES users(id),
+    user_id INTEGER REFERENCES users(id),
     ip_address VARCHAR(45),
     user_agent TEXT,
     request_body JSONB,
