@@ -5,8 +5,8 @@ import { Readable } from 'stream';
  * Predefined folder paths for different image types
  */
 export const IMAGE_PATHS = {
-    USER_PROFILE: 'fastfix/users/profiles',
-    GENERAL: 'fastfix/general',
+    USER_PROFILE: 'convoy/users/profiles',
+    GENERAL: 'convoy/general',
 };
 
 /**

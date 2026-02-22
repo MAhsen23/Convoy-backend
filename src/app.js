@@ -5,7 +5,6 @@ import morgan from 'morgan';
 import authRoutes from './routes/authRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import { requestLogger } from './middleware/requestLogger.js';
-import { initializeFirebase } from './services/firebaseService.js';
 
 const app = express();
 
@@ -49,7 +48,5 @@ app.use((err, req, res, next) => {
         data: null
     });
 });
-
-initializeFirebase();
 
 export default app;

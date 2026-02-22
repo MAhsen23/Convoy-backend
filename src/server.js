@@ -12,14 +12,14 @@ if (!isVercel) {
             print('Supabase client initialized successfully.');
 
             app.listen(PORT, () => {
-                print(`FastFix server running in ${config.env} mode on port ${PORT}`);
+                print(`Convoy server running in ${config.env} mode on port ${PORT}`);
             });
         }).catch((err) => {
-            print('Failed to initialize Supabase:', err.message);
+            print('Failed to initialize Supabase', err.message);
             process.exit(1);
         });
     } catch (err) {
-        print('Failed to start server:', err.message);
+        print('Failed to start server', err.message);
         process.exit(1);
     }
 }
