@@ -1,0 +1,1 @@
+ALTER SEQUENCE user_unique_id_seq RESTART WITH 1247190;

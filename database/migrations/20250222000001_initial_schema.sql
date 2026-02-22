@@ -1,5 +1,5 @@
 CREATE SEQUENCE IF NOT EXISTS user_unique_id_seq
-  START WITH 1000000
+  START WITH 1247190
   INCREMENT BY 1
   MINVALUE 1000000
   MAXVALUE 9999999
@@ -91,5 +91,5 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON COLUMN users.unique_id IS '7-digit public ID for sharing and search (e.g. #1000001)';
+COMMENT ON COLUMN users.unique_id IS '7-digit public ID for sharing and search (e.g. #1247190)';
 COMMENT ON COLUMN users.username_normalized IS 'Lowercase username for case-insensitive uniqueness';
