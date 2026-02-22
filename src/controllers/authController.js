@@ -39,18 +39,18 @@ export const sendOtp = async (req, res) => {
 };
 
 /**
- * POST /api/auth/verify-otp
- * Body: { email, code, username? }
- * If user exists: log in. If not: username required to register then log in.
+ * POST /api/auth/register
+ * Body: { email, code, username, password }
+ * Verifies the OTP sent to email first; if valid, creates the account. Email must be verified to register.
  */
-export const verifyOtp = async (req, res) => {
+export const register = async (req, res) => {
     try {
-        const { email, code, username } = req.body;
-        if (!email || !code) {
+        const { email, code, username, password } = req.body;
+        if (!email || !code || !username || !password) {
             return res.status(400).json({
                 success: false,
                 status: 'ERROR',
-                message: 'Email and code are required',
+                message: 'Email, verification code, username and password are required',
                 data: null
             });
         }
@@ -65,79 +65,6 @@ export const verifyOtp = async (req, res) => {
             });
         }
 
-        let user = await userModel.getByEmail(email);
-
-        if (!user) {
-            if (!username || typeof username !== 'string') {
-                return res.status(400).json({
-                    success: false,
-                    status: 'ERROR',
-                    message: 'New user: please provide a username to complete sign up',
-                    data: null
-                });
-            }
-            const validation = userModel.validateUsername(username);
-            if (!validation.valid) {
-                return res.status(400).json({
-                    success: false,
-                    status: 'ERROR',
-                    message: validation.error,
-                    data: null
-                });
-            }
-            const available = await userModel.isUsernameAvailable(username);
-            if (!available) {
-                return res.status(409).json({
-                    success: false,
-                    status: 'ERROR',
-                    message: 'Username is already taken',
-                    data: null
-                });
-            }
-            user = await userModel.createUser({
-                username: username.trim(),
-                username_normalized: validation.normalized,
-                email: email.trim().toLowerCase()
-            });
-        }
-
-        const token = generateToken(user);
-        const profile = userModel.toPublicProfile(user);
-        return res.status(200).json({
-            success: true,
-            status: 'OK',
-            message: 'Signed in successfully',
-            data: {
-                token,
-                user: profile
-            }
-        });
-    } catch (err) {
-        return res.status(500).json({
-            success: false,
-            status: 'ERROR',
-            message: err.message || 'Verification failed',
-            data: null
-        });
-    }
-};
-
-/**
- * POST /api/auth/register
- * Body: { email, password, username }
- */
-export const register = async (req, res) => {
-    try {
-        const { email, password, username } = req.body;
-        if (!email || !password || !username) {
-            return res.status(400).json({
-                success: false,
-                status: 'ERROR',
-                message: 'Email, password and username are required',
-                data: null
-            });
-        }
-
         const validation = userModel.validateUsername(username);
         if (!validation.valid) {
             return res.status(400).json({
@@ -148,7 +75,7 @@ export const register = async (req, res) => {
             });
         }
 
-        const existing = await userModel.getByEmail(email);
+        const existing = await userModel.getByEmail(email.trim().toLowerCase());
         if (existing) {
             return res.status(409).json({
                 success: false,
@@ -328,7 +255,7 @@ export const checkUsername = async (req, res) => {
         return res.status(500).json({
             success: false,
             status: 'ERROR',
-            message: err.message || 'Check failed',
+            message: err.message || 'Error occurred while checking username availability',
             data: null
         });
     }

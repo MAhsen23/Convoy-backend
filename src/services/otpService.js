@@ -1,11 +1,7 @@
 import db from '../config/db.js';
 import config from '../config/config.js';
 import { sendOTPEmail } from './emailService.js';
-
-/**
- * OTP Service – email only.
- * Production: send code via Resend. Dev: fixed code, no email sent.
- */
+import { print } from '../helpers/helpers.js';
 
 const OTP_EXPIRY_MINUTES = 10;
 const MAX_ATTEMPTS = 5;
@@ -50,7 +46,7 @@ export const sendOTPByEmail = async (email) => {
         .select()
         .single();
 
-    if (error) throw new Error(`Failed to create OTP: ${error.message}`);
+    if (error) throw new Error(`Failed to create OTP ${error.message}`);
 
     if (!isDevMode()) {
         const { sent, error: sendErr } = await sendOTPEmail(normalizedEmail, code);
@@ -131,6 +127,6 @@ export const cleanupExpiredOTPs = async () => {
         .delete()
         .lt('expires_at', new Date().toISOString());
     if (error) {
-        console.error('OTP cleanup error:', error.message);
+        print('Error occurred while cleaning up expired OTPs', error.message);
     }
 };

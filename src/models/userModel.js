@@ -44,7 +44,7 @@ export const validateUsername = (username) => {
 };
 
 /**
- * Get user by UUID (internal id)
+ * Get user by id (internal id)
  */
 export const getUserById = async (id) => {
     const { data, error } = await db
