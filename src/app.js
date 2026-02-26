@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import authRoutes from './routes/authRoutes.js';
+import socialRoutes from './routes/socialRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 import garageRoutes from './routes/garageRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -30,6 +32,8 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/social', socialRoutes);
+app.use('/api/chat', chatRoutes);
 app.use('/api/garage', garageRoutes);
 app.use('/api/upload', uploadRoutes);
 
