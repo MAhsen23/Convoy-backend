@@ -65,19 +65,24 @@ export const sendOTPByEmail = async (email) => {
 
 /**
  * Verify OTP for email.
+ * @param {string} email
+ * @param {string} code
+ * @param {boolean} consume
  */
-export const verifyOTPByEmail = async (email, code) => {
+export const verifyOTPByEmail = async (email, code, consume = true) => {
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     if (!normalizedEmail) {
         return { success: false, message: 'Email is required' };
     }
 
     if (isDevMode() && code === DEV_OTP_CODE) {
-        await db
-            .from('otp_codes')
-            .update({ is_used: true })
-            .eq('email', normalizedEmail)
-            .eq('is_used', false);
+        if (consume) {
+            await db
+                .from('otp_codes')
+                .update({ is_used: true })
+                .eq('email', normalizedEmail)
+                .eq('is_used', false);
+        }
         return { success: true, message: 'OTP verified successfully (DEV MODE)' };
     }
 
@@ -114,7 +119,9 @@ export const verifyOTPByEmail = async (email, code) => {
         };
     }
 
-    await db.from('otp_codes').update({ is_used: true }).eq('id', otpData.id);
+    if (consume) {
+        await db.from('otp_codes').update({ is_used: true }).eq('id', otpData.id);
+    }
     return { success: true, message: 'OTP verified successfully' };
 };
 

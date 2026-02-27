@@ -365,3 +365,155 @@ export const updateProfile = async (req, res) => {
         });
     }
 };
+
+/**
+ * POST /api/auth/forgot-password
+ * Body: { email }
+ * Sends an OTP to the email if the account exists.
+ */
+export const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Email is required',
+                data: null
+            });
+        }
+
+        const user = await userModel.getByEmail(email.trim().toLowerCase());
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                status: 'ERROR',
+                message: 'No account found with this email',
+                data: null
+            });
+        }
+
+        const result = await sendOTPByEmail(email);
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            message: result.message,
+            data: {
+                expires_in_minutes: result.expires_in_minutes,
+                ...(result.dev_code && { dev_code: result.dev_code })
+            }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to send reset OTP',
+            data: null
+        });
+    }
+};
+
+/**
+ * POST /api/auth/verify-otp
+ * Body: { email, code }
+ * Public; checks if OTP is valid without consuming it.
+ */
+export const verifyOtp = async (req, res) => {
+    try {
+        const { email, code } = req.body;
+        if (!email || !code) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Email and verification code are required',
+                data: null
+            });
+        }
+
+        const verifyResult = await verifyOTPByEmail(email, code, false);
+        if (!verifyResult.success) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: verifyResult.message,
+                data: null
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            message: 'OTP verified',
+            data: null
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'OTP verification failed',
+            data: null
+        });
+    }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * Body: { email, code, password }
+ * Verifies OTP and updates user password.
+ */
+export const resetPassword = async (req, res) => {
+    try {
+        const { email, code, password } = req.body;
+        if (!email || !code || !password) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Email, code, and new password are required',
+                data: null
+            });
+        }
+
+        const verifyResult = await verifyOTPByEmail(email, code);
+        if (!verifyResult.success) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: verifyResult.message,
+                data: null
+            });
+        }
+
+        const user = await userModel.getByEmail(email.trim().toLowerCase());
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                status: 'ERROR',
+                message: 'User not found',
+                data: null
+            });
+        }
+
+        const password_hash = await hashPassword(password);
+        const updatedUser = await userModel.updateUser(user.id, { password_hash });
+
+        const token = generateToken(updatedUser);
+        const profile = userModel.toPublicProfile(updatedUser);
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            message: 'Password has been reset successfully',
+            data: {
+                token,
+                user: profile
+            }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to reset password',
+            data: null
+        });
+    }
+};
