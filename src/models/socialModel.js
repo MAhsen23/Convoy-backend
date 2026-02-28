@@ -14,9 +14,9 @@ export const searchUsers = async (query, currentUserId, limit = 20) => {
         .limit(limit);
 
     if (Number.isInteger(numeric) && numeric >= 1000000 && numeric <= 9999999) {
-        builder = builder.or(`unique_id.eq.${numeric},username_normalized.ilike.%${q}%`);
+        builder = builder.or(`unique_id.eq.${numeric},username.ilike.%${q}%`);
     } else {
-        builder = builder.ilike('username_normalized', `%${q}%`);
+        builder = builder.ilike('username', `%${q}%`);
     }
 
     const { data, error } = await builder.order('username', { ascending: true });

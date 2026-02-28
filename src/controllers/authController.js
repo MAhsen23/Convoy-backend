@@ -97,8 +97,7 @@ export const register = async (req, res) => {
 
         const password_hash = await hashPassword(password);
         const user = await userModel.createUser({
-            username: username.trim(),
-            username_normalized: validation.normalized,
+            username: validation.username,
             email: email.trim().toLowerCase(),
             password_hash
         });
@@ -334,8 +333,7 @@ export const updateProfile = async (req, res) => {
                     data: null
                 });
             }
-            updates.username = username.trim();
-            updates.username_normalized = validation.normalized;
+            updates.username = validation.username;
         }
 
         if (Object.keys(updates).length === 0) {

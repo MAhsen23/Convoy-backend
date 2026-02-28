@@ -3,7 +3,7 @@ import db from '../config/db.js';
 /**
  * User model - CRUD and lookups for users table.
  * unique_id: 7-digit public ID for search/share.
- * username: unique case-insensitive via username_normalized.
+ * username: strictly unique representation.
  */
 
 const USER_PUBLIC_FIELDS = [
@@ -22,25 +22,18 @@ const USER_PUBLIC_FIELDS = [
 ];
 
 /**
- * Normalize username for uniqueness (lowercase, trim)
- */
-export const normalizeUsername = (username) => {
-    if (typeof username !== 'string') return '';
-    return username.trim().toLowerCase();
-};
-
-/**
  * Validate username: 3–30 chars, alphanumeric + underscore
  */
 export const validateUsername = (username) => {
-    const normalized = normalizeUsername(username);
-    if (normalized.length < 3 || normalized.length > 30) {
+    if (typeof username !== 'string') return { valid: false, error: 'Username must be a string' };
+    const trimmed = username.trim().toLowerCase();
+    if (trimmed.length < 3 || trimmed.length > 30) {
         return { valid: false, error: 'Username must be 3–30 characters' };
     }
-    if (!/^[a-z0-9_]+$/.test(normalized)) {
-        return { valid: false, error: 'Username can only contain letters, numbers and underscores' };
+    if (!/^[a-z0-9_]+$/.test(trimmed)) {
+        return { valid: false, error: 'Username can only contain lowercase letters, numbers and underscores' };
     }
-    return { valid: true, normalized };
+    return { valid: true, username: trimmed };
 };
 
 /**
@@ -79,13 +72,14 @@ export const getByUniqueId = async (uniqueId) => {
  * Get user by username (case-insensitive)
  */
 export const getByUsername = async (username) => {
-    const normalized = normalizeUsername(username);
+    if (typeof username !== 'string') return null;
+    const normalized = username.trim().toLowerCase();
     if (!normalized) return null;
 
     const { data, error } = await db
         .from('users')
         .select('*')
-        .eq('username_normalized', normalized)
+        .eq('username', normalized)
         .single();
 
     if (error && error.code !== 'PGRST116') throw new Error(error.message);
@@ -126,13 +120,13 @@ export const getByPhone = async (phone) => {
  * Check if username is available (not taken)
  */
 export const isUsernameAvailable = async (username, excludeUserId = null) => {
-    const { valid, normalized } = validateUsername(username);
+    const { valid, username: usernameToCheck } = validateUsername(username);
     if (!valid) return false;
 
     let query = db
         .from('users')
         .select('id')
-        .eq('username_normalized', normalized)
+        .eq('username', usernameToCheck)
         .limit(1);
 
     if (excludeUserId) query = query.neq('id', excludeUserId);
@@ -148,7 +142,6 @@ export const isUsernameAvailable = async (username, excludeUserId = null) => {
 export const createUser = async (payload) => {
     const {
         username,
-        username_normalized,
         email,
         phone,
         password_hash,
@@ -159,8 +152,7 @@ export const createUser = async (payload) => {
     const { data, error } = await db
         .from('users')
         .insert({
-            username: username.trim(),
-            username_normalized,
+            username: username.trim().toLowerCase(),
             email: email ? email.trim().toLowerCase() : null,
             phone: phone || null,
             password_hash: password_hash || null,
@@ -180,7 +172,6 @@ export const createUser = async (payload) => {
 export const updateUser = async (userId, updates) => {
     const allowed = [
         'username',
-        'username_normalized',
         'profile_picture_url',
         'udid',
         'device_info',
