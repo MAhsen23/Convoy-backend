@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.use(authenticate);
 
+router.get('/users/suggested', socialController.getSuggestedUsers);
 router.get('/users/search', socialController.searchUsers);
 router.post('/friend-requests', socialController.sendFriendRequest);
 router.get('/friend-requests/pending', socialController.listPendingRequests);

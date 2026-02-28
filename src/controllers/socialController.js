@@ -38,6 +38,26 @@ export const searchUsers = async (req, res) => {
     }
 };
 
+export const getSuggestedUsers = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit || '4', 10);
+
+        const users = await socialModel.getSuggestedUsers(req.user.id, limit);
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: { users }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to get suggested users',
+            data: null
+        });
+    }
+};
+
 const resolveTargetUser = async (body) => {
     if (body.to_user_id !== undefined) {
         return await userModel.getUserById(parseInt(body.to_user_id, 10));
