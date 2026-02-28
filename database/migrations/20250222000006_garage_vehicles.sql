@@ -32,7 +32,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS vehicles_before_primary ON vehicles;
 CREATE TRIGGER vehicles_before_primary
-  AFTER INSERT OR UPDATE OF is_primary ON vehicles
+  BEFORE INSERT OR UPDATE OF is_primary ON vehicles
   FOR EACH ROW WHEN (NEW.is_primary = true)
   EXECUTE PROCEDURE vehicles_clear_other_primary();
 
