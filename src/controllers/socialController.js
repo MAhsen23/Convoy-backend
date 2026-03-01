@@ -240,6 +240,45 @@ export const respondFriendRequest = async (req, res) => {
     }
 };
 
+export const cancelFriendRequest = async (req, res) => {
+    try {
+        const requestId = parseInt(req.params.id, 10);
+        if (!Number.isInteger(requestId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid request id',
+                data: null
+            });
+        }
+
+        const request = await socialModel.cancelFriendRequest(requestId, req.user.id);
+
+        if (!request) {
+            return res.status(404).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Pending request not found or already processed',
+                data: null
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            message: 'Friend request cancelled successfully',
+            data: { request }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to cancel friend request',
+            data: null
+        });
+    }
+};
+
 export const listFriends = async (req, res) => {
     try {
         const friendships = await socialModel.listFriendships(req.user.id);

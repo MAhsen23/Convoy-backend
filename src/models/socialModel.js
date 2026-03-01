@@ -88,6 +88,20 @@ export const listPendingSent = async (userId) => {
     return data || [];
 };
 
+export const cancelFriendRequest = async (requestId, senderId) => {
+    const { data, error } = await db
+        .from('friend_requests')
+        .delete()
+        .eq('id', requestId)
+        .eq('sender_id', senderId)
+        .eq('status', 'pending')
+        .select('*')
+        .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data;
+};
+
 export const updateFriendRequestStatus = async (requestId, receiverId, status) => {
     const { data, error } = await db
         .from('friend_requests')

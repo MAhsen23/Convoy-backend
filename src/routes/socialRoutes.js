@@ -12,6 +12,7 @@ router.post('/friend-requests', socialController.sendFriendRequest);
 router.get('/friend-requests/pending', socialController.listPendingRequests);
 router.get('/friend-requests/sent', socialController.listPendingSentRequests);
 router.patch('/friend-requests/:id', socialController.respondFriendRequest);
+router.delete('/friend-requests/:id', socialController.cancelFriendRequest);
 router.get('/friends', socialController.listFriends);
 router.delete('/friends/:userId', socialController.removeFriend);
 
