@@ -77,6 +77,17 @@ export const listPendingReceived = async (userId) => {
     return data || [];
 };
 
+export const listPendingSent = async (userId) => {
+    const { data, error } = await db
+        .from('friend_requests')
+        .select('*')
+        .eq('sender_id', userId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data || [];
+};
+
 export const updateFriendRequestStatus = async (requestId, receiverId, status) => {
     const { data, error } = await db
         .from('friend_requests')

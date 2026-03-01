@@ -10,6 +10,7 @@ router.get('/users/suggested', socialController.getSuggestedUsers);
 router.get('/users/search', socialController.searchUsers);
 router.post('/friend-requests', socialController.sendFriendRequest);
 router.get('/friend-requests/pending', socialController.listPendingRequests);
+router.get('/friend-requests/sent', socialController.listPendingSentRequests);
 router.patch('/friend-requests/:id', socialController.respondFriendRequest);
 router.get('/friends', socialController.listFriends);
 router.delete('/friends/:userId', socialController.removeFriend);

@@ -165,6 +165,33 @@ export const listPendingRequests = async (req, res) => {
     }
 };
 
+export const listPendingSentRequests = async (req, res) => {
+    try {
+        const requests = await socialModel.listPendingSent(req.user.id);
+        const receiverIds = requests.map(r => r.receiver_id);
+        const users = await socialModel.getUsersByIds(receiverIds);
+        const userMap = new Map(users.map(u => [u.id, toPublicUser(u)]));
+
+        const enriched = requests.map(r => ({
+            ...r,
+            receiver: userMap.get(r.receiver_id) || null
+        }));
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: { requests: enriched }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to list pending sent requests',
+            data: null
+        });
+    }
+};
+
 export const respondFriendRequest = async (req, res) => {
     try {
         const action = String(req.body.action || '').toLowerCase();
@@ -218,11 +245,12 @@ export const listFriends = async (req, res) => {
         const friendships = await socialModel.listFriendships(req.user.id);
         const friendIds = friendships.map(f => (f.user_one_id === req.user.id ? f.user_two_id : f.user_one_id));
         const users = await socialModel.getUsersByIds(friendIds);
+        const enrichedFriends = await socialModel.enrichUsersWithSocialData(users, req.user.id);
 
         return res.status(200).json({
             success: true,
             status: 'OK',
-            data: { friends: users.map(toPublicUser) }
+            data: { friends: enrichedFriends }
         });
     } catch (err) {
         return res.status(500).json({
