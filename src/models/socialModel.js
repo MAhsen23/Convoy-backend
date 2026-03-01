@@ -243,3 +243,107 @@ export const getSuggestedUsers = async (currentUserId, limit = 4) => {
 
     return await enrichUsersWithSocialData(selected, currentUserId);
 };
+
+/**
+ * Get complete user profile with vehicles, friend count, and friendship status
+ * viewerId: the currently authenticated user (for friendship status)
+ * targetId: the user whose profile is being fetched
+ */
+export const getUserProfile = async (targetId, viewerId) => {
+    const { data: user, error: userError } = await db
+        .from('users')
+        .select('id, unique_id, username, profile_picture_url, status, created_at')
+        .eq('id', targetId)
+        .single();
+
+    if (userError || !user) return null;
+
+    const { data: vehicles } = await db
+        .from('vehicles')
+        .select('id, model, power, fuel_type, modifications, image_url, is_primary, created_at')
+        .eq('user_id', targetId)
+        .order('is_primary', { ascending: false });
+
+    const { count: friendCount } = await db
+        .from('friendships')
+        .select('id', { count: 'exact', head: true })
+        .or(`user_one_id.eq.${targetId},user_two_id.eq.${targetId}`);
+
+    let is_friend = false;
+    let friendship_status = 'none';
+    let friend_request_id = null;
+
+    if (viewerId && viewerId !== targetId) {
+        const [u1, u2] = targetId < viewerId ? [targetId, viewerId] : [viewerId, targetId];
+
+        const { data: friendship } = await db
+            .from('friendships')
+            .select('id')
+            .eq('user_one_id', u1)
+            .eq('user_two_id', u2)
+            .maybeSingle();
+
+        if (friendship) {
+            is_friend = true;
+            friendship_status = 'friends';
+        } else {
+            const { data: sentReq } = await db
+                .from('friend_requests')
+                .select('id')
+                .eq('sender_id', viewerId)
+                .eq('receiver_id', targetId)
+                .eq('status', 'pending')
+                .maybeSingle();
+
+            if (sentReq) {
+                friendship_status = 'request_sent';
+                friend_request_id = sentReq.id;
+            } else {
+                const { data: receivedReq } = await db
+                    .from('friend_requests')
+                    .select('id')
+                    .eq('sender_id', targetId)
+                    .eq('receiver_id', viewerId)
+                    .eq('status', 'pending')
+                    .maybeSingle();
+
+                if (receivedReq) {
+                    friendship_status = 'request_received';
+                    friend_request_id = receivedReq.id;
+                }
+            }
+        }
+    }
+
+    const vehicleList = vehicles || [];
+    const primaryVehicle = vehicleList.find(v => v.is_primary) || null;
+
+    let mutual_friends_count = 0;
+    if (viewerId && viewerId !== targetId) {
+        const [{ data: targetFriendships }, { data: viewerFriendships }] = await Promise.all([
+            db.from('friendships')
+                .select('user_one_id, user_two_id')
+                .or(`user_one_id.eq.${targetId},user_two_id.eq.${targetId}`),
+            db.from('friendships')
+                .select('user_one_id, user_two_id')
+                .or(`user_one_id.eq.${viewerId},user_two_id.eq.${viewerId}`)
+        ]);
+
+        const targetFriendIds = new Set(
+            (targetFriendships || []).map(f => f.user_one_id === targetId ? f.user_two_id : f.user_one_id)
+        );
+        const viewerFriendIds = (viewerFriendships || []).map(f => f.user_one_id === viewerId ? f.user_two_id : f.user_one_id);
+        mutual_friends_count = viewerFriendIds.filter(id => targetFriendIds.has(id)).length;
+    }
+
+    return {
+        ...user,
+        friend_count: friendCount || 0,
+        mutual_friends_count,
+        is_friend,
+        friendship_status,
+        friend_request_id,
+        primary_vehicle: primaryVehicle,
+        vehicles: vehicleList
+    };
+};

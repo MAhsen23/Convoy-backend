@@ -329,3 +329,37 @@ export const removeFriend = async (req, res) => {
         });
     }
 };
+
+/**
+ * GET /social/users/:identifier
+ * :identifier can be a username (string)
+ */
+export const getUserProfile = async (req, res) => {
+    try {
+        const { identifier } = req.params;
+        const targetUser = await userModel.getByUsername(identifier);
+
+        if (!targetUser) {
+            return res.status(404).json({
+                success: false,
+                status: 'ERROR',
+                message: 'User not found',
+                data: null
+            });
+        }
+
+        const profile = await socialModel.getUserProfile(targetUser.id, req.user.id);
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: { user: profile }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to get user profile',
+            data: null
+        });
+    }
+};

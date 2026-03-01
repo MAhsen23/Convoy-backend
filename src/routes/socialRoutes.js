@@ -8,6 +8,7 @@ router.use(authenticate);
 
 router.get('/users/suggested', socialController.getSuggestedUsers);
 router.get('/users/search', socialController.searchUsers);
+router.get('/users/:identifier', socialController.getUserProfile);
 router.post('/friend-requests', socialController.sendFriendRequest);
 router.get('/friend-requests/pending', socialController.listPendingRequests);
 router.get('/friend-requests/sent', socialController.listPendingSentRequests);
