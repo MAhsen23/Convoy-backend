@@ -61,99 +61,29 @@ export const isConversationMember = async (conversationId, userId) => {
 };
 
 export const listUserConversations = async (userId) => {
-    const { data: memberships, error: memError } = await db
-        .from('conversation_members')
-        .select('conversation_id, last_read_at')
-        .eq('user_id', userId);
-    if (memError) throw new Error(memError.message);
-
-    const ids = (memberships || []).map(m => m.conversation_id);
-    if (ids.length === 0) return [];
-
-    const { data: conversations, error: convError } = await db
-        .from('conversations')
-        .select('*')
-        .in('id', ids)
-        .order('created_at', { ascending: false });
-    if (convError) throw new Error(convError.message);
-
-    const { data: latestMessages, error: msgError } = await db
-        .from('messages')
-        .select('id, conversation_id, sender_id, type, content, created_at')
-        .in('conversation_id', ids)
-        .order('created_at', { ascending: false });
-    if (msgError) throw new Error(msgError.message);
-
-    const firstMsgByConversation = {};
-    for (const m of latestMessages || []) {
-        if (!firstMsgByConversation[m.conversation_id]) firstMsgByConversation[m.conversation_id] = m;
-    }
-
-    const readMap = new Map((memberships || []).map(m => [m.conversation_id, m.last_read_at]));
-
-    const directOtherUserIds = (conversations || [])
-        .filter(c => c.type === 'direct')
-        .map(c => (c.direct_user_one_id === userId ? c.direct_user_two_id : c.direct_user_one_id));
-
-    const { data: otherUsers, error: usersError } = await db
-        .from('users')
-        .select('id, username, profile_picture_url, status')
-        .in('id', [...new Set(directOtherUserIds)]);
-    if (usersError) throw new Error(usersError.message);
-
-    const otherUserMap = new Map((otherUsers || []).map(u => [u.id, u]));
-
-    const withUnread = await Promise.all(
-        (conversations || []).map(async c => {
-            const lastReadAt = readMap.get(c.id) || null;
-
-            let query = db
-                .from('messages')
-                .select('id', { count: 'exact', head: true })
-                .eq('conversation_id', c.id)
-                .neq('sender_id', userId);
-
-            if (lastReadAt) {
-                query = query.gt('created_at', lastReadAt);
-            }
-
-            const { count, error } = await query;
-            if (error) throw new Error(error.message);
-
-            const latest = firstMsgByConversation[c.id] || null;
-            const otherId = c.type === 'direct'
-                ? (c.direct_user_one_id === userId ? c.direct_user_two_id : c.direct_user_one_id)
-                : null;
-            const other = otherId ? otherUserMap.get(otherId) : null;
-
-            return {
-                id: c.id,
-                type: c.type,
-                direct_user_one_id: c.direct_user_one_id,
-                direct_user_two_id: c.direct_user_two_id,
-                created_at: c.created_at,
-                latest_message: latest ? latest.content : null,
-                latest_message_at: latest ? latest.created_at : null,
-                unread_count: count || 0,
-                other_user: other
-                    ? {
-                        id: other.id,
-                        username: other.username,
-                        profile_picture_url: other.profile_picture_url,
-                        status: ['online', 'driving', 'in_convoy', 'offline'].includes(other.status)
-                            ? other.status
-                            : 'offline'
-                    }
-                    : null
-            };
-        })
-    );
-
-    return withUnread.sort((a, b) => {
-        const at = a.latest_message_at || a.created_at;
-        const bt = b.latest_message_at || b.created_at;
-        return new Date(bt).getTime() - new Date(at).getTime();
+    const { data, error } = await db.rpc('get_direct_conversations_for_user', {
+        p_user_id: userId
     });
+    if (error) throw new Error(error.message);
+
+    return (data || []).map(r => ({
+        id: r.id,
+        type: r.type,
+        direct_user_one_id: r.direct_user_one_id,
+        direct_user_two_id: r.direct_user_two_id,
+        created_at: r.created_at,
+        latest_message: r.latest_message,
+        latest_message_at: r.latest_message_at,
+        unread_count: r.unread_count || 0,
+        other_user: {
+            id: r.other_user_id,
+            username: r.other_username,
+            profile_picture_url: r.other_profile_picture_url,
+            status: ['online', 'driving', 'in_convoy', 'offline'].includes(r.other_status)
+                ? r.other_status
+                : 'offline'
+        }
+    }));
 };
 
 export const listConversationMessages = async (conversationId, limit = 50, offset = 0) => {
