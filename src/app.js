@@ -6,6 +6,7 @@ import authRoutes from './routes/authRoutes.js';
 import socialRoutes from './routes/socialRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import garageRoutes from './routes/garageRoutes.js';
+import convoyRoutes from './routes/convoyRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import { requestLogger } from './middleware/requestLogger.js';
 
@@ -35,6 +36,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/garage', garageRoutes);
+app.use('/api/convoys', convoyRoutes);
 app.use('/api/upload', uploadRoutes);
 
 app.use((req, res, next) => {

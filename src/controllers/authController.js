@@ -304,11 +304,11 @@ export const updateProfile = async (req, res) => {
         if (device_info !== undefined) updates.device_info = device_info;
         if (push_token !== undefined) updates.push_token = push_token;
         if (status !== undefined) {
-            if (!['online', 'driving', 'offline'].includes(status)) {
+            if (!['online', 'driving', 'in_convoy', 'offline'].includes(status)) {
                 return res.status(400).json({
                     success: false,
                     status: 'ERROR',
-                    message: 'status must be one of: online, driving, offline',
+                    message: 'status must be one of online, driving, in_convoy, offline',
                     data: null
                 });
             }

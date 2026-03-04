@@ -14,8 +14,10 @@ export const getOrCreateDirectConversation = async (currentUserId, otherUserId) 
         .maybeSingle();
 
     if (existingError) throw new Error(existingError.message);
+    let conversation;
 
     if (existing) {
+        conversation = existing;
         await db
             .from('conversation_members')
             .upsert(
@@ -25,28 +27,86 @@ export const getOrCreateDirectConversation = async (currentUserId, otherUserId) 
                 ],
                 { onConflict: 'conversation_id,user_id', ignoreDuplicates: true }
             );
-        return existing;
+    } else {
+        const { data: created, error: createError } = await db
+            .from('conversations')
+            .insert({
+                type: 'direct',
+                created_by: currentUserId,
+                direct_user_one_id,
+                direct_user_two_id
+            })
+            .select('*')
+            .single();
+        if (createError) throw new Error(createError.message);
+
+        const { error: memberError } = await db.from('conversation_members').insert([
+            { conversation_id: created.id, user_id: direct_user_one_id },
+            { conversation_id: created.id, user_id: direct_user_two_id }
+        ]);
+        if (memberError) throw new Error(memberError.message);
+
+        conversation = created;
     }
 
-    const { data: created, error: createError } = await db
-        .from('conversations')
-        .insert({
-            type: 'direct',
-            created_by: currentUserId,
-            direct_user_one_id,
-            direct_user_two_id
-        })
-        .select('*')
-        .single();
-    if (createError) throw new Error(createError.message);
+    const otherUserId = conversation.direct_user_one_id === currentUserId
+        ? conversation.direct_user_two_id
+        : conversation.direct_user_one_id;
 
-    const { error: memberError } = await db.from('conversation_members').insert([
-        { conversation_id: created.id, user_id: direct_user_one_id },
-        { conversation_id: created.id, user_id: direct_user_two_id }
-    ]);
+    const { data: otherUser, error: userError } = await db
+        .from('users')
+        .select('id, username, profile_picture_url, status')
+        .eq('id', otherUserId)
+        .single();
+
+    if (userError) throw new Error(userError.message);
+
+    const { data: latestMessage, error: messageError } = await db
+        .from('messages')
+        .select('content, created_at')
+        .eq('conversation_id', conversation.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (messageError) throw new Error(messageError.message);
+
+    const { data: member, error: memberError } = await db
+        .from('conversation_members')
+        .select('last_read_at')
+        .eq('conversation_id', conversation.id)
+        .eq('user_id', currentUserId)
+        .single();
+
     if (memberError) throw new Error(memberError.message);
 
-    return created;
+    let query = db
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('conversation_id', conversation.id)
+        .neq('sender_id', currentUserId);
+
+    if (member?.last_read_at) {
+        query = query.gt('created_at', member.last_read_at);
+    }
+
+    const { count: unreadCount, error: countError } = await query;
+    if (countError) throw new Error(countError.message);
+
+    return {
+        id: conversation.id,
+        type: conversation.type,
+        direct_user_one_id: conversation.direct_user_one_id,
+        direct_user_two_id: conversation.direct_user_two_id,
+        created_at: conversation.created_at,
+        latest_message: latestMessage?.content || null,
+        latest_message_at: latestMessage?.created_at || null,
+        unread_count: unreadCount || 0,
+        other_user_id: otherUser.id,
+        other_username: otherUser.username,
+        other_profile_picture_url: otherUser.profile_picture_url,
+        other_status: otherUser.status
+    };
 };
 
 export const isConversationMember = async (conversationId, userId) => {
