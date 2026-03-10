@@ -49,14 +49,14 @@ export const getOrCreateDirectConversation = async (currentUserId, otherUserId) 
         conversation = created;
     }
 
-    const otherUserId = conversation.direct_user_one_id === currentUserId
+    const counterpartUserId = conversation.direct_user_one_id === currentUserId
         ? conversation.direct_user_two_id
         : conversation.direct_user_one_id;
 
     const { data: otherUser, error: userError } = await db
         .from('users')
         .select('id, username, profile_picture_url, status')
-        .eq('id', otherUserId)
+        .eq('id', counterpartUserId)
         .single();
 
     if (userError) throw new Error(userError.message);
