@@ -1,5 +1,6 @@
 import * as userModel from '../models/userModel.js';
 import * as convoyModel from '../models/convoyModel.js';
+import { emitToConvoy, emitToUser } from '../socket/io.js';
 
 const convoySummary = (c) =>
     c
@@ -42,6 +43,9 @@ export const createConvoy = async (req, res) => {
             created_by: req.user.id,
             name: req.body.name,
             max_members
+        });
+        emitToUser(req.user.id, 'convoy:created', {
+            convoy: convoySummary(convoy)
         });
         return res.status(201).json({
             success: true,
@@ -120,6 +124,17 @@ export const joinByCode = async (req, res) => {
         }
 
         await convoyModel.addMember(convoy.id, req.user.id, 'member');
+        emitToConvoy(convoy.id, 'convoy:member_joined', {
+            convoy_id: convoy.id,
+            user: {
+                id: req.user.id,
+                username: req.user.username,
+                profile_picture_url: req.user.profile_picture_url
+            }
+        });
+        emitToUser(req.user.id, 'convoy:joined', {
+            convoy: convoySummary(convoy)
+        });
         return res.status(200).json({
             success: true,
             status: 'OK',
@@ -157,6 +172,16 @@ export const leaveConvoy = async (req, res) => {
             });
         }
         await convoyModel.leaveConvoy(convoyId, req.user.id);
+        emitToConvoy(convoyId, 'convoy:member_left', {
+            convoy_id: convoyId,
+            user: {
+                id: req.user.id,
+                username: req.user.username
+            }
+        });
+        emitToUser(req.user.id, 'convoy:left', {
+            convoy_id: convoyId
+        });
         return res.status(200).json({
             success: true,
             status: 'OK',
@@ -186,6 +211,11 @@ export const endConvoy = async (req, res) => {
             });
         }
         const convoy = await convoyModel.endConvoy(convoyId);
+        emitToConvoy(convoyId, 'convoy:ended', {
+            convoy_id: convoyId,
+            ended_by: req.user.id,
+            ended_at: convoy?.ended_at || new Date().toISOString()
+        });
         return res.status(200).json({
             success: true,
             status: 'OK',
@@ -293,6 +323,9 @@ export const sendInvite = async (req, res) => {
         }
 
         const invite = await convoyModel.createInvite(convoyId, req.user.id, inviteeUserId);
+        emitToUser(inviteeUserId, 'convoy:invite_new', {
+            invite
+        });
         return res.status(201).json({
             success: true,
             status: 'OK',
@@ -352,6 +385,11 @@ export const respondInvite = async (req, res) => {
 
         if (action === 'reject') {
             await convoyModel.respondInvite(inviteId, req.user.id, 'rejected');
+            emitToUser(invite.inviter_id, 'convoy:invite_rejected', {
+                invite_id: invite.id,
+                convoy_id: invite.convoy_id,
+                invitee_id: req.user.id
+            });
             return res.status(200).json({
                 success: true,
                 status: 'OK',
@@ -393,6 +431,22 @@ export const respondInvite = async (req, res) => {
 
         await convoyModel.respondInvite(inviteId, req.user.id, 'accepted');
         await convoyModel.addMember(convoy.id, req.user.id, 'member');
+        emitToUser(invite.inviter_id, 'convoy:invite_accepted', {
+            invite_id: invite.id,
+            convoy_id: convoy.id,
+            invitee_id: req.user.id
+        });
+        emitToConvoy(convoy.id, 'convoy:member_joined', {
+            convoy_id: convoy.id,
+            user: {
+                id: req.user.id,
+                username: req.user.username,
+                profile_picture_url: req.user.profile_picture_url
+            }
+        });
+        emitToUser(req.user.id, 'convoy:joined', {
+            convoy: convoySummary(convoy)
+        });
 
         return res.status(200).json({
             success: true,

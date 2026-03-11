@@ -7,9 +7,9 @@ const router = express.Router();
 router.use(authenticate);
 
 router.post('/direct/:userId', chatController.createOrGetDirectConversation);
+router.post('/conversations/messages', chatController.sendMessage);
 router.get('/conversations', chatController.listConversations);
 router.get('/conversations/:id/messages', chatController.listMessages);
-router.post('/conversations/:id/messages', chatController.sendMessage);
 router.patch('/conversations/:id/read', chatController.markRead);
 
 export default router;

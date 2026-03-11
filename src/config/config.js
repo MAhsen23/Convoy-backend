@@ -15,4 +15,9 @@ export default {
         apiKey: process.env.CLOUDINARY_API_KEY,
         apiSecret: process.env.CLOUDINARY_API_SECRET
     },
+    socket: {
+        corsOrigins: process.env.SOCKET_CORS_ORIGIN
+            ? process.env.SOCKET_CORS_ORIGIN.split(',').map(v => v.trim())
+            : '*'
+    }
 };

@@ -1,6 +1,8 @@
 import app from './app.js';
 import config from './config/config.js';
 import { print } from './helpers/helpers.js';
+import http from 'http';
+import { initSocket } from './socket/io.js';
 
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
 
@@ -11,7 +13,10 @@ if (!isVercel) {
         import('./config/db.js').then(() => {
             print('Supabase client initialized successfully.');
 
-            app.listen(PORT, () => {
+            const server = http.createServer(app);
+            initSocket(server);
+
+            server.listen(PORT, () => {
                 print(`Convoy server running in ${config.env} mode on port ${PORT}`);
             });
         }).catch((err) => {

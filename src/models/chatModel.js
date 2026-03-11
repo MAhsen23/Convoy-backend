@@ -120,6 +120,25 @@ export const isConversationMember = async (conversationId, userId) => {
     return Boolean(data);
 };
 
+export const getConversationById = async (conversationId) => {
+    const { data, error } = await db
+        .from('conversations')
+        .select('*')
+        .eq('id', conversationId)
+        .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data;
+};
+
+export const listConversationMemberUserIds = async (conversationId) => {
+    const { data, error } = await db
+        .from('conversation_members')
+        .select('user_id')
+        .eq('conversation_id', conversationId);
+    if (error) throw new Error(error.message);
+    return (data || []).map(d => d.user_id);
+};
+
 export const listUserConversations = async (userId) => {
     const { data, error } = await db.rpc('get_direct_conversations_for_user', {
         p_user_id: userId

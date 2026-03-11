@@ -1,5 +1,6 @@
 import * as userModel from '../models/userModel.js';
 import * as socialModel from '../models/socialModel.js';
+import { emitToUser, emitToUsers } from '../socket/io.js';
 
 const toPublicUser = (u) => ({
     id: u.id,
@@ -122,6 +123,9 @@ export const sendFriendRequest = async (req, res) => {
         }
 
         const request = await socialModel.createFriendRequest(req.user.id, target.id);
+        emitToUser(target.id, 'friend_request:new', {
+            request
+        });
         return res.status(201).json({
             success: true,
             status: 'OK',
@@ -222,6 +226,20 @@ export const respondFriendRequest = async (req, res) => {
 
         if (action === 'accept') {
             await socialModel.ensureFriendship(request.sender_id, request.receiver_id);
+            emitToUsers([request.sender_id, request.receiver_id], 'friend_request:accepted', {
+                request_id: request.id,
+                sender_id: request.sender_id,
+                receiver_id: request.receiver_id
+            });
+            emitToUsers([request.sender_id, request.receiver_id], 'friends:updated', {
+                user_ids: [request.sender_id, request.receiver_id]
+            });
+        } else {
+            emitToUser(request.sender_id, 'friend_request:rejected', {
+                request_id: request.id,
+                sender_id: request.sender_id,
+                receiver_id: request.receiver_id
+            });
         }
 
         return res.status(200).json({
@@ -262,6 +280,12 @@ export const cancelFriendRequest = async (req, res) => {
                 data: null
             });
         }
+
+        emitToUser(request.receiver_id, 'friend_request:cancelled', {
+            request_id: request.id,
+            sender_id: request.sender_id,
+            receiver_id: request.receiver_id
+        });
 
         return res.status(200).json({
             success: true,
@@ -314,6 +338,9 @@ export const removeFriend = async (req, res) => {
         }
 
         await socialModel.removeFriendship(req.user.id, otherUserId);
+        emitToUsers([req.user.id, otherUserId], 'friends:removed', {
+            user_ids: [req.user.id, otherUserId]
+        });
         return res.status(200).json({
             success: true,
             status: 'OK',

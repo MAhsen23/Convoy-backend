@@ -1,6 +1,7 @@
 import * as userModel from '../models/userModel.js';
 import * as socialModel from '../models/socialModel.js';
 import * as chatModel from '../models/chatModel.js';
+import { emitToConversation, emitToUsers } from '../socket/io.js';
 
 export const createOrGetDirectConversation = async (req, res) => {
     try {
@@ -110,50 +111,131 @@ export const listMessages = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
     try {
-        const conversationId = parseInt(req.params.id, 10);
-        const type = String(req.body.type || 'text');
-        const content = String(req.body.content || '').trim();
+        const userId = req.user.id;
+
+        let conversationId = req.body?.conversation_id
+            ? parseInt(req.body.conversation_id, 10)
+            : null;
+
+        const toUserId = req.body?.to_user_id
+            ? parseInt(req.body.to_user_id, 10)
+            : null;
+
+        const type = String(req.body.type || "text");
+        const content = String(req.body.content || "").trim();
         const metadata = req.body.metadata || null;
 
+        let conversation = null;
         if (!content) {
             return res.status(400).json({
                 success: false,
-                status: 'ERROR',
-                message: 'Message content is required',
+                status: "ERROR",
+                message: "Message content is required",
                 data: null
             });
         }
-        if (!['text', 'image', 'system'].includes(type)) {
+
+        const allowedTypes = ["text", "image", "system"];
+        if (!allowedTypes.includes(type)) {
             return res.status(400).json({
                 success: false,
-                status: 'ERROR',
-                message: 'type must be one of: text, image, system',
+                status: "ERROR",
+                message: "type must be one of: text, image, system",
                 data: null
             });
         }
 
-        const isMember = await chatModel.isConversationMember(conversationId, req.user.id);
-        if (!isMember) {
-            return res.status(403).json({
-                success: false,
-                status: 'ERROR',
-                message: 'You are not a member of this conversation',
-                data: null
-            });
+        if (!conversationId) {
+            if (!toUserId) {
+                return res.status(400).json({
+                    success: false,
+                    status: "ERROR",
+                    message: "Provide conversation_id OR to_user_id",
+                    data: null
+                });
+            }
+
+            if (toUserId === userId) {
+                return res.status(400).json({
+                    success: false,
+                    status: "ERROR",
+                    message: "Cannot send message to yourself",
+                    data: null
+                });
+            }
+
+            const otherUser = await userModel.getUserById(toUserId);
+
+            if (!otherUser) {
+                return res.status(404).json({
+                    success: false,
+                    status: "ERROR",
+                    message: "User not found",
+                    data: null
+                });
+            }
+
+            const areFriends = await socialModel.areFriends(userId, toUserId);
+
+            if (!areFriends) {
+                return res.status(403).json({
+                    success: false,
+                    status: "ERROR",
+                    message: "You can only chat with friends",
+                    data: null
+                });
+            }
+
+            conversation = await chatModel.getOrCreateDirectConversation(userId, toUserId);
+            conversationId = conversation.id;
+
+        } else {
+            const isMember = await chatModel.isConversationMember(conversationId, userId);
+
+            if (!isMember) {
+                return res.status(403).json({
+                    success: false,
+                    status: "ERROR",
+                    message: "You are not a member of this conversation",
+                    data: null
+                });
+            }
         }
 
-        const message = await chatModel.createMessage(conversationId, req.user.id, content, type, metadata);
+        const message = await chatModel.createMessage(
+            conversationId,
+            userId,
+            content,
+            type,
+            metadata
+        );
+        const participantUserIds = await chatModel.listConversationMemberUserIds(conversationId);
+        emitToConversation(conversationId, "conversation:message_new", {
+            conversation_id: conversationId,
+            message
+        });
+
+        emitToUsers(participantUserIds, "inbox:conversation_updated", {
+            conversation_id: conversationId,
+            actor_user_id: userId,
+            latest_message: message.content,
+            latest_message_at: message.created_at
+        });
+
         return res.status(201).json({
             success: true,
-            status: 'OK',
-            message: 'Message sent',
-            data: { message }
+            status: "OK",
+            message: "Message sent",
+            data: {
+                ...(conversation && { conversation }),
+                message
+            }
         });
     } catch (err) {
         return res.status(500).json({
             success: false,
-            status: 'ERROR',
-            message: err.message || 'Failed to send message',
+            status: "ERROR",
+            message: err.message || "Failed to send message",
             data: null
         });
     }
@@ -172,6 +254,11 @@ export const markRead = async (req, res) => {
             });
         }
         const state = await chatModel.markConversationRead(conversationId, req.user.id);
+        emitToConversation(conversationId, 'conversation:read', {
+            conversation_id: conversationId,
+            user_id: req.user.id,
+            last_read_at: state.last_read_at
+        });
         return res.status(200).json({
             success: true,
             status: 'OK',
