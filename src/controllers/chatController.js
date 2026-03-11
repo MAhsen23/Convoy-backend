@@ -3,62 +3,6 @@ import * as socialModel from '../models/socialModel.js';
 import * as chatModel from '../models/chatModel.js';
 import { emitToConversation, emitToUsers } from '../socket/io.js';
 
-export const createOrGetDirectConversation = async (req, res) => {
-    try {
-        const otherUserId = parseInt(req.params.userId, 10);
-        if (!Number.isInteger(otherUserId)) {
-            return res.status(400).json({
-                success: false,
-                status: 'ERROR',
-                message: 'Invalid user id',
-                data: null
-            });
-        }
-        if (otherUserId === req.user.id) {
-            return res.status(400).json({
-                success: false,
-                status: 'ERROR',
-                message: 'Cannot create direct conversation with yourself',
-                data: null
-            });
-        }
-
-        const otherUser = await userModel.getUserById(otherUserId);
-        if (!otherUser) {
-            return res.status(404).json({
-                success: false,
-                status: 'ERROR',
-                message: 'User not found',
-                data: null
-            });
-        }
-
-        const friends = await socialModel.areFriends(req.user.id, otherUserId);
-        if (!friends) {
-            return res.status(403).json({
-                success: false,
-                status: 'ERROR',
-                message: 'You can only chat with friends',
-                data: null
-            });
-        }
-
-        const conversation = await chatModel.getOrCreateDirectConversation(req.user.id, otherUserId);
-        return res.status(200).json({
-            success: true,
-            status: 'OK',
-            data: { conversation }
-        });
-    } catch (err) {
-        return res.status(500).json({
-            success: false,
-            status: 'ERROR',
-            message: err.message || 'Failed to open direct conversation',
-            data: null
-        });
-    }
-};
-
 export const listConversations = async (req, res) => {
     try {
         const conversations = await chatModel.listUserConversations(req.user.id);
