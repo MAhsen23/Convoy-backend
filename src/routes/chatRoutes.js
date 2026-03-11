@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.use(authenticate);
 
-router.post('/conversations/messages', chatController.sendMessage);
+router.post('/messages', chatController.sendMessage);
 router.get('/conversations', chatController.listConversations);
 router.get('/conversations/:id/messages', chatController.listMessages);
 router.patch('/conversations/:id/read', chatController.markRead);
