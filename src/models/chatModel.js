@@ -106,7 +106,9 @@ export const getOrCreateDirectConversation = async (currentUserId, otherUserId) 
             id: otherUser.id,
             username: otherUser.username,
             profile_picture_url: otherUser.profile_picture_url,
-            status: normalizeUserStatus(otherUser.status)
+            status: ['online', 'driving', 'in_convoy', 'offline'].includes(otherUser.status)
+                ? otherUser.status
+                : 'offline'
         }
     };
 };

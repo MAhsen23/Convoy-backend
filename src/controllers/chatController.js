@@ -57,10 +57,6 @@ export const sendMessage = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        let conversationId = req.body?.conversation_id
-            ? parseInt(req.body.conversation_id, 10)
-            : null;
-
         const toUserId = req.body?.to_user_id
             ? parseInt(req.body.to_user_id, 10)
             : null;
@@ -89,62 +85,48 @@ export const sendMessage = async (req, res) => {
             });
         }
 
-        if (!conversationId) {
-            if (!toUserId) {
-                return res.status(400).json({
-                    success: false,
-                    status: "ERROR",
-                    message: "Provide conversation_id OR to_user_id",
-                    data: null
-                });
-            }
-
-            if (toUserId === userId) {
-                return res.status(400).json({
-                    success: false,
-                    status: "ERROR",
-                    message: "Cannot send message to yourself",
-                    data: null
-                });
-            }
-
-            const otherUser = await userModel.getUserById(toUserId);
-
-            if (!otherUser) {
-                return res.status(404).json({
-                    success: false,
-                    status: "ERROR",
-                    message: "User not found",
-                    data: null
-                });
-            }
-
-            const areFriends = await socialModel.areFriends(userId, toUserId);
-
-            if (!areFriends) {
-                return res.status(403).json({
-                    success: false,
-                    status: "ERROR",
-                    message: "You can only chat with friends",
-                    data: null
-                });
-            }
-
-            conversation = await chatModel.getOrCreateDirectConversation(userId, toUserId);
-            conversationId = conversation.id;
-
-        } else {
-            const isMember = await chatModel.isConversationMember(conversationId, userId);
-
-            if (!isMember) {
-                return res.status(403).json({
-                    success: false,
-                    status: "ERROR",
-                    message: "You are not a member of this conversation",
-                    data: null
-                });
-            }
+        if (!toUserId) {
+            return res.status(400).json({
+                success: false,
+                status: "ERROR",
+                message: "Recipient user Id is required",
+                data: null
+            });
         }
+
+        if (toUserId === userId) {
+            return res.status(400).json({
+                success: false,
+                status: "ERROR",
+                message: "Cannot send message to yourself",
+                data: null
+            });
+        }
+
+        const otherUser = await userModel.getUserById(toUserId);
+
+        if (!otherUser) {
+            return res.status(404).json({
+                success: false,
+                status: "ERROR",
+                message: "User not found",
+                data: null
+            });
+        }
+
+        const areFriends = await socialModel.areFriends(userId, toUserId);
+
+        if (!areFriends) {
+            return res.status(403).json({
+                success: false,
+                status: "ERROR",
+                message: "You can only chat with friends",
+                data: null
+            });
+        }
+
+        conversation = await chatModel.getOrCreateDirectConversation(userId, toUserId);
+        const conversationId = conversation.id;
 
         const message = await chatModel.createMessage(
             conversationId,
@@ -153,6 +135,13 @@ export const sendMessage = async (req, res) => {
             type,
             metadata
         );
+        if (conversation) {
+            conversation = {
+                ...conversation,
+                latest_message: message.content,
+                latest_message_at: message.created_at
+            };
+        }
         const participantUserIds = await chatModel.listConversationMemberUserIds(conversationId);
         emitToConversation(conversationId, "conversation:message_new", {
             conversation_id: conversationId,
