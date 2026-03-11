@@ -102,10 +102,12 @@ export const getOrCreateDirectConversation = async (currentUserId, otherUserId) 
         latest_message: latestMessage?.content || null,
         latest_message_at: latestMessage?.created_at || null,
         unread_count: unreadCount || 0,
-        other_user_id: otherUser.id,
-        other_username: otherUser.username,
-        other_profile_picture_url: otherUser.profile_picture_url,
-        other_status: otherUser.status
+        other_user: {
+            id: otherUser.id,
+            username: otherUser.username,
+            profile_picture_url: otherUser.profile_picture_url,
+            status: normalizeUserStatus(otherUser.status)
+        }
     };
 };
 
