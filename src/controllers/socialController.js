@@ -1,5 +1,6 @@
 import * as userModel from '../models/userModel.js';
 import * as socialModel from '../models/socialModel.js';
+import * as chatModel from '../models/chatModel.js';
 import { emitToUser, emitToUsers } from '../socket/io.js';
 
 const toPublicUser = (u) => ({
@@ -24,10 +25,19 @@ export const searchUsers = async (req, res) => {
         }
 
         const users = await socialModel.searchUsers(q, req.user.id, limit);
+        const conversationMap = await chatModel.getDirectConversationIdsMap(
+            req.user.id,
+            users.map((u) => u.id)
+        );
+
+        const usersWithConversation = users.map((u) => ({
+            ...u,
+            conversation_id: conversationMap.get(u.id) || null
+        }));
         return res.status(200).json({
             success: true,
             status: 'OK',
-            data: { users }
+            data: { users: usersWithConversation }
         });
     } catch (err) {
         return res.status(500).json({
@@ -44,10 +54,18 @@ export const getSuggestedUsers = async (req, res) => {
         const limit = parseInt(req.query.limit || '4', 10);
 
         const users = await socialModel.getSuggestedUsers(req.user.id, limit);
+        const conversationMap = await chatModel.getDirectConversationIdsMap(
+            req.user.id,
+            users.map((u) => u.id)
+        );
+        const usersWithConversation = users.map((u) => ({
+            ...u,
+            conversation_id: conversationMap.get(u.id) || null
+        }));
         return res.status(200).json({
             success: true,
             status: 'OK',
-            data: { users }
+            data: { users: usersWithConversation }
         });
     } catch (err) {
         return res.status(500).json({
@@ -376,6 +394,10 @@ export const getUserProfile = async (req, res) => {
         }
 
         const profile = await socialModel.getUserProfile(targetUser.id, req.user.id);
+        if (profile) {
+            const conversationId = await chatModel.getDirectConversationIdBetweenUsers(req.user.id, profile.id);
+            profile.conversation_id = conversationId;
+        }
         return res.status(200).json({
             success: true,
             status: 'OK',

@@ -2,6 +2,43 @@ import db from '../config/db.js';
 
 const pair = (a, b) => (a < b ? [a, b] : [b, a]);
 
+export const getDirectConversationIdsMap = async (currentUserId, otherUserIds = []) => {
+    const uniqueOthers = [...new Set(otherUserIds || [])]
+        .filter((id) => Number.isInteger(id) && id !== currentUserId);
+
+    if (uniqueOthers.length === 0) {
+        return new Map();
+    }
+
+    const idsCsv = uniqueOthers.join(',');
+    const { data, error } = await db
+        .from('conversations')
+        .select('id, direct_user_one_id, direct_user_two_id')
+        .eq('type', 'direct')
+        .or(
+            `and(direct_user_one_id.eq.${currentUserId},direct_user_two_id.in.(${idsCsv})),` +
+            `and(direct_user_two_id.eq.${currentUserId},direct_user_one_id.in.(${idsCsv}))`
+        );
+
+    if (error) throw new Error(error.message);
+
+    const map = new Map();
+    (data || []).forEach((conversation) => {
+        const otherId = conversation.direct_user_one_id === currentUserId
+            ? conversation.direct_user_two_id
+            : conversation.direct_user_one_id;
+        map.set(otherId, conversation.id);
+    });
+
+    return map;
+};
+
+export const getDirectConversationIdBetweenUsers = async (currentUserId, otherUserId) => {
+    if (!Number.isInteger(otherUserId) || otherUserId === currentUserId) return null;
+    const map = await getDirectConversationIdsMap(currentUserId, [otherUserId]);
+    return map.get(otherUserId) || null;
+};
+
 export const getOrCreateDirectConversation = async (currentUserId, otherUserId) => {
     const [direct_user_one_id, direct_user_two_id] = pair(currentUserId, otherUserId);
 

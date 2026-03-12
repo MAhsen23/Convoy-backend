@@ -1,7 +1,7 @@
 import * as userModel from '../models/userModel.js';
 import * as socialModel from '../models/socialModel.js';
 import * as chatModel from '../models/chatModel.js';
-import { emitToConversationExceptUsers } from '../socket/io.js';
+import { emitToConversationExceptUsers, emitToUsers } from '../socket/io.js';
 
 export const listConversations = async (req, res) => {
     try {
@@ -142,9 +142,19 @@ export const sendMessage = async (req, res) => {
                 latest_message_at: message.created_at
             };
         }
+        let participantUserIds = await chatModel.listConversationMemberUserIds(conversationId);
+        participantUserIds = participantUserIds.filter((id) => id !== userId);
+
         emitToConversationExceptUsers(conversationId, [userId], "conversation:message_new", {
             conversation_id: conversationId,
             message
+        });
+
+        emitToUsers(participantUserIds, 'inbox:conversation_updated', {
+            conversation_id: conversationId,
+            actor_user_id: userId,
+            latest_message: message.content,
+            latest_message_at: message.created_at,
         });
 
         return res.status(201).json({
