@@ -1,6 +1,6 @@
 import * as userModel from '../models/userModel.js';
 import * as convoyModel from '../models/convoyModel.js';
-import { emitToConvoy, emitToConvoyExceptUsers, emitToUser } from '../socket/io.js';
+import { emitToConvoyExceptUsers, emitToUser } from '../socket/io.js';
 
 const convoySummary = (c) =>
     c
@@ -211,7 +211,7 @@ export const endConvoy = async (req, res) => {
             });
         }
         const convoy = await convoyModel.endConvoy(convoyId);
-        emitToConvoy(convoyId, 'convoy:ended', {
+        emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:ended', {
             convoy_id: convoyId,
             ended_by: req.user.id,
             ended_at: convoy?.ended_at || new Date().toISOString()
