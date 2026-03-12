@@ -210,15 +210,15 @@ export const listConversationMessages = async (conversationId, limit = 50, offse
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const safeOffset = Math.max(offset, 0);
 
-    const { data, error } = await db
+    const { data, error, count } = await db
         .from('messages')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
         .range(safeOffset, safeOffset + safeLimit - 1);
 
     if (error) throw new Error(error.message);
-    return data || [];
+    return { messages: data || [], total: count || 0, limit: safeLimit, offset: safeOffset };
 };
 
 export const createMessage = async (conversationId, senderId, content, type = 'text', metadata = null) => {

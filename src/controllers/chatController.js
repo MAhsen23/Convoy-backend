@@ -37,11 +37,19 @@ export const listMessages = async (req, res) => {
             });
         }
 
-        const messages = await chatModel.listConversationMessages(conversationId, limit, offset);
+        const { messages, total, limit: pageLimit, offset: pageOffset } = await chatModel.listConversationMessages(conversationId, limit, offset);
         return res.status(200).json({
             success: true,
             status: 'OK',
-            data: { messages }
+            data: {
+                messages,
+                pagination: {
+                    total,
+                    limit: pageLimit,
+                    offset: pageOffset,
+                    hasMore: pageOffset + pageLimit < total
+                }
+            }
         });
     } catch (err) {
         return res.status(500).json({
