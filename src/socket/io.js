@@ -167,6 +167,23 @@ export const emitToConvoy = (convoyId, event, payload) => {
     ioInstance.to(roomConvoy(convoyId)).emit(event, payload);
 };
 
+export const emitToConvoyExceptUsers = (
+    convoyId,
+    excludedUserIds = [],
+    event,
+    payload
+) => {
+    if (!ioInstance) return;
+
+    const room = roomConvoy(convoyId);
+
+    const excludedRooms = [...new Set(excludedUserIds)]
+        .filter((id) => Number.isInteger(id))
+        .map((id) => roomUser(id));
+
+    ioInstance.to(room).except(excludedRooms).emit(event, payload);
+};
+
 export const socketRooms = {
     roomUser,
     roomConversation,

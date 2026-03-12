@@ -1,6 +1,6 @@
 import * as userModel from '../models/userModel.js';
 import * as convoyModel from '../models/convoyModel.js';
-import { emitToConvoy, emitToUser } from '../socket/io.js';
+import { emitToConvoy, emitToConvoyExceptUsers, emitToUser } from '../socket/io.js';
 
 const convoySummary = (c) =>
     c
@@ -124,7 +124,7 @@ export const joinByCode = async (req, res) => {
         }
 
         await convoyModel.addMember(convoy.id, req.user.id, 'member');
-        emitToConvoy(convoy.id, 'convoy:member_joined', {
+        emitToConvoyExceptUsers(convoy.id, [req.user.id], 'convoy:member_joined', {
             convoy_id: convoy.id,
             user: {
                 id: req.user.id,
@@ -172,7 +172,7 @@ export const leaveConvoy = async (req, res) => {
             });
         }
         await convoyModel.leaveConvoy(convoyId, req.user.id);
-        emitToConvoy(convoyId, 'convoy:member_left', {
+        emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:member_left', {
             convoy_id: convoyId,
             user: {
                 id: req.user.id,
@@ -436,7 +436,7 @@ export const respondInvite = async (req, res) => {
             convoy_id: convoy.id,
             invitee_id: req.user.id
         });
-        emitToConvoy(convoy.id, 'convoy:member_joined', {
+        emitToConvoyExceptUsers(convoy.id, [req.user.id], 'convoy:member_joined', {
             convoy_id: convoy.id,
             user: {
                 id: req.user.id,

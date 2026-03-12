@@ -1,7 +1,7 @@
 import * as userModel from '../models/userModel.js';
 import * as socialModel from '../models/socialModel.js';
 import * as chatModel from '../models/chatModel.js';
-import { emitToConversation, emitToConversationExceptUsers } from '../socket/io.js';
+import { emitToConversationExceptUsers } from '../socket/io.js';
 
 export const listConversations = async (req, res) => {
     try {
@@ -179,7 +179,7 @@ export const markRead = async (req, res) => {
             });
         }
         const state = await chatModel.markConversationRead(conversationId, req.user.id);
-        emitToConversation(conversationId, 'conversation:read', {
+        emitToConversationExceptUsers(conversationId, [req.user.id], 'conversation:read', {
             conversation_id: conversationId,
             user_id: req.user.id,
             last_read_at: state.last_read_at
