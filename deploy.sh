@@ -43,7 +43,7 @@ docker compose -f "${SUPABASE_COMPOSE_FILE}" pull
 docker compose -f "${SUPABASE_COMPOSE_FILE}" up -d
 
 echo "[deploy] apply database migrations with supabase CLI"
-npx --yes supabase db push --db-url "${DATABASE_URL}"
+PGSSLMODE=disable npx --yes supabase db push --db-url "${DATABASE_URL}"
 
 echo "[deploy] ensure pm2 log directory exists"
 mkdir -p logs
