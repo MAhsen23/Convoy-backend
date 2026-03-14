@@ -17,4 +17,3 @@ router.get('/me', authenticate, authController.getMe);
 router.patch('/profile', authenticate, authController.updateProfile);
 
 export default router;
-
