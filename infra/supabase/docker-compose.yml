@@ -75,7 +75,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DB_NAME: ${POSTGRES_DB:-postgres}
       DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
-      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY}
+      DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:-supabaserealtime}
       API_JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       ERL_AFLAGS: -proto_dist inet_tcp
