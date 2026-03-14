@@ -23,7 +23,7 @@ services:
       - supabase-net
 
   auth:
-    image: supabase/gotrue:v2.177.0
+    image: supabase/gotrue:v2.143.0
     container_name: supabase-auth
     restart: unless-stopped
     depends_on:
