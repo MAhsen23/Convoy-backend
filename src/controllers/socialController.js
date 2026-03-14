@@ -327,11 +327,19 @@ export const listFriends = async (req, res) => {
         const friendIds = friendships.map(f => (f.user_one_id === req.user.id ? f.user_two_id : f.user_one_id));
         const users = await socialModel.getUsersByIds(friendIds);
         const enrichedFriends = await socialModel.enrichUsersWithSocialData(users, req.user.id);
+        const conversationMap = await chatModel.getDirectConversationIdsMap(
+            req.user.id,
+            enrichedFriends.map((u) => u.id)
+        );
+        const friendsWithConversation = enrichedFriends.map((u) => ({
+            ...u,
+            conversation_id: conversationMap.get(u.id) || null
+        }));
 
         return res.status(200).json({
             success: true,
             status: 'OK',
-            data: { friends: enrichedFriends }
+            data: { friends: friendsWithConversation }
         });
     } catch (err) {
         return res.status(500).json({
