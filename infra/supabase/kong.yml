@@ -1,0 +1,66 @@
+_format_version: "2.1"
+_transform: true
+
+services:
+  - name: auth-v1
+    url: http://auth:9999/
+    routes:
+      - name: auth-v1-route
+        paths:
+          - /auth/v1
+        strip_path: true
+
+  - name: rest-v1
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1-route
+        paths:
+          - /rest/v1
+        strip_path: true
+
+  - name: realtime-v1
+    url: http://realtime:4000/socket/
+    routes:
+      - name: realtime-v1-route
+        paths:
+          - /realtime/v1
+        strip_path: true
+
+  - name: meta
+    url: http://meta:8080/
+    routes:
+      - name: meta-route
+        paths:
+          - /pg
+        strip_path: true
+
+  - name: studio
+    url: http://studio:3000/
+    routes:
+      - name: studio-route
+        paths:
+          - /
+        strip_path: false
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Authorization
+        - Content-Type
+        - apikey
+      exposed_headers:
+        - Content-Range
+        - X-Total-Count
+      credentials: true
+      max_age: 3600
+
