@@ -18,14 +18,6 @@ services:
           - /rest/v1
         strip_path: true
 
-  - name: realtime-v1
-    url: http://realtime:4000/socket/
-    routes:
-      - name: realtime-v1-route
-        paths:
-          - /realtime/v1
-        strip_path: true
-
   - name: meta
     url: http://meta:8080/
     routes:

@@ -60,32 +60,6 @@ services:
     networks:
       - supabase-net
 
-  realtime:
-    image: supabase/realtime:v2.34.47
-    container_name: supabase-realtime
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      PORT: 4000
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-postgres}
-      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
-      DB_ENC_KEY: ${DB_ENC_KEY:-supabaserealtime}
-      API_JWT_SECRET: ${JWT_SECRET}
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-      ERL_AFLAGS: -proto_dist inet_tcp
-      APP_NAME: realtime
-      SEED_SELF_HOST: "true"
-      RUN_JANITOR: "true"
-      RLIMIT_NOFILE: "10000"
-    networks:
-      - supabase-net
-
   meta:
     image: supabase/postgres-meta:v0.86.0
     container_name: supabase-meta
@@ -129,7 +103,6 @@ services:
     depends_on:
       - auth
       - rest
-      - realtime
       - studio
     environment:
       KONG_DATABASE: "off"
