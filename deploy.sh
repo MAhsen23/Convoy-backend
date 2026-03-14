@@ -51,6 +51,51 @@ if [ -z "${DATABASE_URL:-}" ]; then
   echo "[deploy] ERROR: DATABASE_URL is not set in app environment"
   exit 1
 fi
+
+echo "[deploy] validate app and supabase JWT configuration"
+INFRA_JWT_SECRET="$(set -a; source "${SUPABASE_ENV_FILE}"; printf '%s' "${JWT_SECRET:-}")"
+INFRA_ANON_KEY="$(set -a; source "${SUPABASE_ENV_FILE}"; printf '%s' "${SUPABASE_ANON_KEY:-}")"
+INFRA_SERVICE_ROLE_KEY="$(set -a; source "${SUPABASE_ENV_FILE}"; printf '%s' "${SUPABASE_SERVICE_ROLE_KEY:-}")"
+
+if [ -z "${JWT_SECRET:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+  echo "[deploy] ERROR: app .env is missing JWT_SECRET / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY"
+  exit 1
+fi
+
+if [ -z "${INFRA_JWT_SECRET}" ] || [ -z "${INFRA_ANON_KEY}" ] || [ -z "${INFRA_SERVICE_ROLE_KEY}" ]; then
+  echo "[deploy] ERROR: ${SUPABASE_ENV_FILE} is missing JWT_SECRET / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY"
+  exit 1
+fi
+
+if [ "${SUPABASE_ANON_KEY}" != "${INFRA_ANON_KEY}" ] || [ "${SUPABASE_SERVICE_ROLE_KEY}" != "${INFRA_SERVICE_ROLE_KEY}" ]; then
+  echo "[deploy] ERROR: app .env and ${SUPABASE_ENV_FILE} keys do not match"
+  echo "[deploy]        Keep SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY identical in both files"
+  exit 1
+fi
+
+CHECK_JWT_SECRET="${INFRA_JWT_SECRET}" \
+CHECK_ANON="${INFRA_ANON_KEY}" \
+CHECK_SERVICE="${INFRA_SERVICE_ROLE_KEY}" \
+node -e "
+const jwt = require('jsonwebtoken');
+const secret = process.env.CHECK_JWT_SECRET;
+const tokens = [
+  ['SUPABASE_ANON_KEY', process.env.CHECK_ANON, 'anon'],
+  ['SUPABASE_SERVICE_ROLE_KEY', process.env.CHECK_SERVICE, 'service_role'],
+];
+for (const [name, token, expectedRole] of tokens) {
+  try {
+    const decoded = jwt.verify(token, secret);
+    if (decoded.role !== expectedRole) {
+      throw new Error('role claim mismatch');
+    }
+  } catch (err) {
+    console.error('[deploy] ERROR: ' + name + ' is invalid for JWT_SECRET (' + err.message + ')');
+    process.exit(1);
+  }
+}
+"
+
 PGSSLMODE=disable npx --yes supabase db push --db-url "${DATABASE_URL}"
 
 echo "[deploy] ensure pm2 log directory exists"
