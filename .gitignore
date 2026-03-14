@@ -11,3 +11,5 @@ firebase-admin-key.json
 postman
 logs
 backups
+supabase/.temp
+supabase/migrations

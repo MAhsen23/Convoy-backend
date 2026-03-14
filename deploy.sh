@@ -49,7 +49,7 @@ echo "[deploy] ensure pm2 log directory exists"
 mkdir -p logs
 
 echo "[deploy] restart application with pm2"
-pm2 startOrRestart ecosystem.config.js --env production
+pm2 startOrRestart ecosystem.config.cjs --env production
 pm2 save
 
 echo "[deploy] done"

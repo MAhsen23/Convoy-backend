@@ -16,7 +16,7 @@ This repository now includes:
 
 - `.github/workflows/deploy.yml`
 - `deploy.sh`
-- `ecosystem.config.js`
+- `ecosystem.config.cjs`
 - `infra/supabase/docker-compose.yml`
 - `infra/supabase/kong.yml`
 - `infra/supabase/.env.example`
@@ -236,7 +236,7 @@ Install dependencies and start app:
 ```bash
 npm ci
 mkdir -p ~/convoy-backend/logs
-pm2 startOrRestart ecosystem.config.js --env production
+pm2 startOrRestart ecosystem.config.cjs --env production
 pm2 save
 pm2 startup
 ```
