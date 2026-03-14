@@ -5,6 +5,8 @@ services:
     image: supabase/postgres:15.1.0.117
     container_name: supabase-db
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
