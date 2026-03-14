@@ -6,9 +6,37 @@ APP_DIR="${APP_DIR_RAW/#\~/$HOME}"
 SUPABASE_COMPOSE_FILE="${SUPABASE_COMPOSE_FILE:-infra/supabase/docker-compose.yml}"
 SUPABASE_ENV_FILE="${SUPABASE_ENV_FILE:-infra/supabase/.env}"
 MIGRATIONS_SRC_DIR="${MIGRATIONS_SRC_DIR:-database/migrations}"
+PREV_COMMIT=""
+
+rollback_to_previous_release() {
+  if [ -z "${PREV_COMMIT}" ]; then
+    echo "[deploy] rollback skipped: no previous commit found"
+    return
+  fi
+
+  echo "[deploy] rollback to previous commit ${PREV_COMMIT}"
+  git reset --hard "${PREV_COMMIT}"
+
+  if [ -f package-lock.json ]; then
+    npm ci
+  else
+    npm install
+  fi
+
+  if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+  fi
+
+  pm2 startOrRestart ecosystem.config.cjs --env production || true
+  pm2 restart convoy-backend --update-env || true
+  pm2 save || true
+}
 
 echo "[deploy] cd -> ${APP_DIR}"
 cd "${APP_DIR}"
+PREV_COMMIT="$(git rev-parse HEAD 2>/dev/null || true)"
 
 echo "[deploy] fetch latest code"
 git fetch --all
@@ -105,6 +133,27 @@ echo "[deploy] restart application with pm2"
 pm2 startOrRestart ecosystem.config.cjs --env production
 pm2 restart convoy-backend --update-env
 pm2 save
+
+APP_PORT="${PORT:-3000}"
+APP_HEALTH_URL="${APP_HEALTH_URL:-http://127.0.0.1:${APP_PORT}/health}"
+SUPABASE_AUTH_HEALTH_URL="${SUPABASE_AUTH_HEALTH_URL:-http://127.0.0.1:8000/auth/v1/health}"
+
+echo "[deploy] health checks"
+health_ok="false"
+for attempt in $(seq 1 10); do
+  if curl -fsS "${APP_HEALTH_URL}" >/dev/null && curl -fsS "${SUPABASE_AUTH_HEALTH_URL}" >/dev/null; then
+    health_ok="true"
+    break
+  fi
+  echo "[deploy] health check attempt ${attempt}/10 failed, retrying..."
+  sleep 3
+done
+
+if [ "${health_ok}" != "true" ]; then
+  echo "[deploy] ERROR: post-deploy health checks failed"
+  rollback_to_previous_release
+  exit 1
+fi
 
 echo "[deploy] done"
 
