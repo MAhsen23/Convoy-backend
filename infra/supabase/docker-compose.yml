@@ -61,7 +61,7 @@ services:
       - supabase-net
 
   realtime:
-    image: supabase/realtime:v2.28.32
+    image: supabase/realtime:v2.34.47
     container_name: supabase-realtime
     restart: unless-stopped
     depends_on:
@@ -81,6 +81,7 @@ services:
       APP_NAME: realtime
       SEED_SELF_HOST: "true"
       RUN_JANITOR: "true"
+      RLIMIT_NOFILE: "10000"
     networks:
       - supabase-net
 
@@ -150,4 +151,3 @@ volumes:
 networks:
   supabase-net:
     driver: bridge
-
