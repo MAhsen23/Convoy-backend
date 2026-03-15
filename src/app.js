@@ -8,6 +8,7 @@ import chatRoutes from './routes/chatRoutes.js';
 import garageRoutes from './routes/garageRoutes.js';
 import convoyRoutes from './routes/convoyRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import logRoutes from './routes/logRoutes.js';
 import { requestLogger } from './middleware/requestLogger.js';
 
 const app = express();
@@ -38,6 +39,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/garage', garageRoutes);
 app.use('/api/convoys', convoyRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/logs', logRoutes);
 
 app.use((req, res, next) => {
     res.status(404).json({

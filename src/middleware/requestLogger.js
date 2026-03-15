@@ -1,5 +1,6 @@
 import { print } from '../helpers/helpers.js';
 import config from '../config/config.js';
+import { createApiLog } from '../models/apiLogModel.js';
 
 /**
  * Request/Response Logger Middleware
@@ -8,7 +9,7 @@ import config from '../config/config.js';
  */
 export const requestLogger = (req, res, next) => {
     const startTime = Date.now();
-    const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
     const requestLog = {
         requestId,
@@ -55,7 +56,6 @@ export const requestLogger = (req, res, next) => {
 
         if (config.logToDatabase && shouldLogToDatabase(req.path, req.method)) {
             try {
-                const { createApiLog } = await import('../models/apiLogModel.js');
                 await createApiLog({
                     request_id: requestId,
                     method: req.method,
@@ -73,7 +73,7 @@ export const requestLogger = (req, res, next) => {
                     message: data?.message || '',
                     error_message: data?.success === false ? data?.message : null
                 });
-            } catch (error) {
+            } catch {
             }
         }
 
@@ -145,16 +145,7 @@ const sanitizeResponseBody = (data) => {
  * Based on configuration and endpoint importance
  */
 const shouldLogToDatabase = (path, method) => {
-    if (config.logAllRequests) {
-        return true;
-    }
-
-    const importantPaths = [
-        '/api/auth/register',
-        '/api/auth/profile'
-    ];
-
-    return importantPaths.some(importantPath => path.includes(importantPath)) ||
-        ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
+    if (config.logAllRequests) return true;
+    return path.startsWith('/api/');
 };
 
