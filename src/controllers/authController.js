@@ -205,11 +205,20 @@ export const login = async (req, res) => {
 export const getMe = async (req, res) => {
     try {
         const profile = userModel.toPublicProfile(req.user);
+        const vehicles = await userModel.getUserVehicles(req.user.id);
+        const primaryVehicle = vehicles.find((v) => v.is_primary) || null;
+
         return res.status(200).json({
             success: true,
             status: 'OK',
             message: 'Profile retrieved',
-            data: { user: profile }
+            data: {
+                user: {
+                    ...profile,
+                    primary_vehicle: primaryVehicle,
+                    vehicles
+                }
+            }
         });
     } catch (err) {
         return res.status(500).json({

@@ -207,3 +207,18 @@ export const toPublicProfile = (user) => {
     }
     return out;
 };
+
+/**
+ * Get all vehicles for a user (primary first)
+ */
+export const getUserVehicles = async (userId) => {
+    const { data, error } = await db
+        .from('vehicles')
+        .select('id, model, power, fuel_type, modifications, image_url, is_primary, created_at')
+        .eq('user_id', userId)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return data || [];
+};
