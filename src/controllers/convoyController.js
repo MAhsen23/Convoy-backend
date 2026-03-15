@@ -21,7 +21,7 @@ const convoySummary = (c) =>
 export const createConvoy = async (req, res) => {
     try {
         const existing = await convoyModel.getActiveConvoyForUser(req.user.id);
-        if (existing && req.user.username !== "ahsenshiekh") {
+        if (existing) {
             return res.status(409).json({
                 success: false,
                 status: 'ERROR',
