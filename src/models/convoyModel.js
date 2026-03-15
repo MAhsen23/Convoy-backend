@@ -43,7 +43,7 @@ export const getConvoyByCode = async (code) => {
     return data;
 };
 
-export const createConvoy = async ({ created_by, name, max_members = 15 }) => {
+export const createConvoy = async ({ created_by, name, icon = null, max_members = 15 }) => {
     let created = null;
     let lastError = null;
     for (let i = 0; i < 8; i += 1) {
@@ -53,6 +53,7 @@ export const createConvoy = async ({ created_by, name, max_members = 15 }) => {
             .insert({
                 code,
                 name: name ? String(name).trim() : null,
+                icon: icon ? String(icon).trim() : null,
                 created_by,
                 max_members
             })
