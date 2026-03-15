@@ -150,15 +150,14 @@ export const sendMessage = async (req, res) => {
                 latest_message_at: message.created_at
             };
         }
-        let participantUserIds = await chatModel.listConversationMemberUserIds(conversationId);
-        participantUserIds = participantUserIds.filter((id) => id !== userId);
+        const recipientUserIds = [toUserId];
 
-        emitToConversationExceptUsers(conversationId, [userId], "conversation:message_new", {
+        emitToUsers(recipientUserIds, "conversation:message_new", {
             conversation_id: conversationId,
             message
         });
 
-        emitToUsers(participantUserIds, 'inbox:conversation_updated', {
+        emitToUsers(recipientUserIds, 'inbox:conversation_updated', {
             conversation_id: conversationId,
             actor_user_id: userId,
             latest_message: message.content,

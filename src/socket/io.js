@@ -22,19 +22,6 @@ const getHandshakeToken = (socket) => {
 
 const joinDefaultRooms = async (socket, userId) => {
     socket.join(roomUser(userId));
-
-    const { data: memberships } = await db
-        .from('conversation_members')
-        .select('conversation_id')
-        .eq('user_id', userId);
-    (memberships || []).forEach((m) => socket.join(roomConversation(m.conversation_id)));
-
-    const { data: convoyMemberships } = await db
-        .from('convoy_members')
-        .select('convoy_id')
-        .eq('user_id', userId)
-        .eq('status', 'active');
-    (convoyMemberships || []).forEach((m) => socket.join(roomConvoy(m.convoy_id)));
 };
 
 export const initSocket = (httpServer) => {
