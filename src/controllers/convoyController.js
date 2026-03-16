@@ -1,6 +1,7 @@
 import * as userModel from '../models/userModel.js';
 import * as convoyModel from '../models/convoyModel.js';
-import { emitToConvoyExceptUsers, emitToUser } from '../socket/io.js';
+import * as chatModel from '../models/chatModel.js';
+import { emitToConvoyExceptUsers, emitToUser, emitToUsers } from '../socket/io.js';
 
 const convoySummary = (c) =>
     c
@@ -146,9 +147,6 @@ export const joinByCode = async (req, res) => {
                 profile_picture_url: req.user.profile_picture_url
             }
         });
-        emitToUser(req.user.id, 'convoy:joined', {
-            convoy: convoySummary(convoy)
-        });
         return res.status(200).json({
             success: true,
             status: 'OK',
@@ -192,9 +190,6 @@ export const leaveConvoy = async (req, res) => {
                 id: req.user.id,
                 username: req.user.username
             }
-        });
-        emitToUser(req.user.id, 'convoy:left', {
-            convoy_id: convoyId
         });
         return res.status(200).json({
             success: true,
@@ -458,9 +453,6 @@ export const respondInvite = async (req, res) => {
                 profile_picture_url: req.user.profile_picture_url
             }
         });
-        emitToUser(req.user.id, 'convoy:joined', {
-            convoy: convoySummary(convoy)
-        });
 
         return res.status(200).json({
             success: true,
@@ -562,6 +554,14 @@ export const sendConvoyMessage = async (req, res) => {
         emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:message_new', {
             convoy_id: convoyId,
             message
+        });
+        const recipientUserIds = (await chatModel.listConversationMemberUserIds(convoyConversation.id))
+            .filter((id) => id !== req.user.id);
+        emitToUsers(recipientUserIds, 'inbox:conversation_updated', {
+            conversation_id: convoyConversation.id,
+            actor_user_id: req.user.id,
+            latest_message: message.content,
+            latest_message_at: message.created_at,
         });
 
         return res.status(201).json({
