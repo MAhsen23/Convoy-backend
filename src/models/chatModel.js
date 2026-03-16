@@ -252,6 +252,28 @@ export const createMessage = async (conversationId, senderId, content, type = 't
     return data;
 };
 
+export const createMessageWithSender = async (
+    conversationId,
+    senderId,
+    content,
+    type = 'text',
+    metadata = null
+) => {
+    const data = await createMessage(conversationId, senderId, content, type, metadata);
+
+    const { data: sender, error: senderError } = await db
+        .from('users')
+        .select('id, username, profile_picture_url, status')
+        .eq('id', senderId)
+        .single();
+    if (senderError) throw new Error(senderError.message);
+
+    return {
+        ...data,
+        sender
+    };
+};
+
 export const markConversationRead = async (conversationId, userId) => {
     const { data, error } = await db
         .from('conversation_members')
