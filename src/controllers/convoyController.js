@@ -20,6 +20,7 @@ const convoySummary = (c) =>
 
 export const createConvoy = async (req, res) => {
     try {
+        /*
         const existing = await convoyModel.getActiveConvoyForUser(req.user.id);
         if (existing) {
             return res.status(409).json({
@@ -29,6 +30,7 @@ export const createConvoy = async (req, res) => {
                 data: { convoy: convoySummary(existing) }
             });
         }
+        */
 
         const max_members = req.body.max_members ? parseInt(req.body.max_members, 10) : 15;
         if (!Number.isInteger(max_members) || max_members < 2 || max_members > 50) {
