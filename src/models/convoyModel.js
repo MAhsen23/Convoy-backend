@@ -10,6 +10,39 @@ const generateCode = (length = 6) => {
     return out;
 };
 
+const getOrCreateConvoyConversation = async (convoyId, createdByUserId) => {
+    const { data: existing, error: existingError } = await db
+        .from('conversations')
+        .select('id')
+        .eq('type', 'convoy')
+        .eq('convoy_id', convoyId)
+        .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    if (existing) return existing.id;
+
+    const { data: created, error: createError } = await db
+        .from('conversations')
+        .insert({
+            type: 'convoy',
+            created_by: createdByUserId,
+            convoy_id: convoyId
+        })
+        .select('id')
+        .single();
+    if (createError) throw new Error(createError.message);
+    return created.id;
+};
+
+const ensureConversationMember = async (conversationId, userId) => {
+    const { error } = await db
+        .from('conversation_members')
+        .upsert(
+            [{ conversation_id: conversationId, user_id: userId }],
+            { onConflict: 'conversation_id,user_id', ignoreDuplicates: true }
+        );
+    if (error) throw new Error(error.message);
+};
+
 export const getActiveConvoyForUser = async (userId) => {
     const { data, error } = await db
         .from('convoy_members')
@@ -79,6 +112,8 @@ export const createConvoy = async ({ created_by, name, icon = null, max_members 
     if (memberError) throw new Error(memberError.message);
 
     await db.from('users').update({ status: 'in_convoy' }).eq('id', created_by);
+    const convoyConversationId = await getOrCreateConvoyConversation(created.id, created_by);
+    await ensureConversationMember(convoyConversationId, created_by);
     return created;
 };
 
@@ -118,6 +153,8 @@ export const addMember = async (convoyId, userId, role = 'member') => {
     if (error) throw new Error(error.message);
 
     await db.from('users').update({ status: 'in_convoy' }).eq('id', userId);
+    const convoyConversationId = await getOrCreateConvoyConversation(convoyId, userId);
+    await ensureConversationMember(convoyConversationId, userId);
     return data;
 };
 
