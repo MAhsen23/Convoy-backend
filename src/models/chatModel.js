@@ -181,12 +181,12 @@ export const listConversationMemberUserIds = async (conversationId) => {
 };
 
 export const listUserConversations = async (userId) => {
-    const { data, error } = await db.rpc('get_direct_conversations_for_user', {
+    const { data, error } = await db.rpc('get_user_conversations', {
         p_user_id: userId
     });
     if (error) throw new Error(error.message);
 
-    const directConversations = (data || []).map(r => ({
+    return (data || []).map((r) => ({
         id: r.id,
         type: r.type,
         direct_user_one_id: r.direct_user_one_id,
@@ -195,83 +195,30 @@ export const listUserConversations = async (userId) => {
         latest_message: r.latest_message,
         latest_message_at: r.latest_message_at,
         unread_count: r.unread_count || 0,
-        other_user: {
-            id: r.other_user_id,
-            username: r.other_username,
-            profile_picture_url: r.other_profile_picture_url,
-            status: ['online', 'driving', 'in_convoy', 'offline'].includes(r.other_status)
-                ? r.other_status
-                : 'offline'
-        }
-    }));
-
-    const { data: convoyMemberships, error: convoyMembershipsError } = await db
-        .from('conversation_members')
-        .select('conversation_id, last_read_at, conversations!inner(id, type, created_at, convoy_id, convoys(id, code, name, icon, status, max_members, started_at, ended_at, created_at))')
-        .eq('user_id', userId)
-        .eq('conversations.type', 'convoy');
-    if (convoyMembershipsError) throw new Error(convoyMembershipsError.message);
-
-    const convoyConversations = await Promise.all(
-        (convoyMemberships || []).map(async (row) => {
-            const conversation = row.conversations;
-            if (!conversation?.id) return null;
-
-            const { data: latestMessage, error: latestMessageError } = await db
-                .from('messages')
-                .select('content, created_at')
-                .eq('conversation_id', conversation.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-            if (latestMessageError) throw new Error(latestMessageError.message);
-
-            let unreadQuery = db
-                .from('messages')
-                .select('*', { count: 'exact', head: true })
-                .eq('conversation_id', conversation.id)
-                .neq('sender_id', userId);
-            if (row.last_read_at) {
-                unreadQuery = unreadQuery.gt('created_at', row.last_read_at);
+        other_user: r.type === 'direct'
+            ? {
+                id: r.other_user_id,
+                username: r.other_username,
+                profile_picture_url: r.other_profile_picture_url,
+                status: ['online', 'driving', 'in_convoy', 'offline'].includes(r.other_status)
+                    ? r.other_status
+                    : 'offline'
             }
-
-            const { count: unreadCount, error: unreadError } = await unreadQuery;
-            if (unreadError) throw new Error(unreadError.message);
-
-            const convoy = conversation.convoys || null;
-            return {
-                id: conversation.id,
-                type: conversation.type,
-                direct_user_one_id: null,
-                direct_user_two_id: null,
-                created_at: conversation.created_at,
-                latest_message: latestMessage?.content || null,
-                latest_message_at: latestMessage?.created_at || null,
-                unread_count: unreadCount || 0,
-                other_user: null,
-                convoy: convoy
-                    ? {
-                        id: convoy.id,
-                        code: convoy.code,
-                        name: convoy.name,
-                        icon: convoy.icon || null,
-                        status: convoy.status,
-                        max_members: convoy.max_members,
-                        started_at: convoy.started_at,
-                        ended_at: convoy.ended_at,
-                        created_at: convoy.created_at
-                    }
-                    : null
-            };
-        })
-    );
-
-    return [...directConversations, ...(convoyConversations.filter(Boolean))]
-        .sort((a, b) => {
-            const aTime = a.latest_message_at || a.created_at;
-            const bTime = b.latest_message_at || b.created_at;
-            return new Date(bTime).getTime() - new Date(aTime).getTime();
-        });
+            : null,
+        convoy: r.type === 'convoy' && r.convoy_id
+            ? {
+                id: r.convoy_id,
+                code: r.convoy_code,
+                name: r.convoy_name,
+                icon: r.convoy_icon || null,
+                status: r.convoy_status,
+                max_members: r.convoy_max_members,
+                started_at: r.convoy_started_at,
+                ended_at: r.convoy_ended_at,
+                created_at: r.convoy_created_at
+            }
+            : null
+    }));
 };
 
 export const listConversationMessages = async (conversationId, limit = 50, offset = 0) => {
