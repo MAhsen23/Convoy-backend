@@ -477,3 +477,154 @@ export const respondInvite = async (req, res) => {
         });
     }
 };
+
+export const sendConvoyMessage = async (req, res) => {
+    try {
+        const convoyId = parseInt(req.params.id, 10);
+        const conversationId = req.body?.conversation_id
+            ? parseInt(req.body.conversation_id, 10)
+            : null;
+
+        if (!Number.isInteger(convoyId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid convoy id',
+                data: null
+            });
+        }
+        if (!Number.isInteger(conversationId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'conversation_id is required',
+                data: null
+            });
+        }
+
+        const member = await convoyModel.getMember(convoyId, req.user.id);
+        if (!member) {
+            return res.status(403).json({
+                success: false,
+                status: 'ERROR',
+                message: 'You are not an active member of this convoy',
+                data: null
+            });
+        }
+
+        const type = String(req.body.type || 'text');
+        const content = String(req.body.content || '').trim();
+        const metadata = req.body.metadata || null;
+        const allowedTypes = ['text', 'image', 'system'];
+        if (!allowedTypes.includes(type)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'type must be one of: text, image, system',
+                data: null
+            });
+        }
+        if (!content) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Message content is required',
+                data: null
+            });
+        }
+
+        const convoyConversation = await convoyModel.getConvoyConversationById(conversationId);
+        if (!convoyConversation) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'conversation_id must reference a convoy conversation',
+                data: null
+            });
+        }
+        if (convoyConversation.convoy_id !== convoyId) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'conversation_id does not belong to provided convoy id',
+                data: null
+            });
+        }
+
+        const message = await convoyModel.createConvoyMessageByConversationId(
+            convoyConversation.id,
+            req.user.id,
+            content,
+            type,
+            metadata
+        );
+
+        emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:message_new', {
+            convoy_id: convoyId,
+            message
+        });
+
+        return res.status(201).json({
+            success: true,
+            status: 'OK',
+            message: 'Convoy message sent',
+            data: { message }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to send convoy message',
+            data: null
+        });
+    }
+};
+
+export const listConvoyMessages = async (req, res) => {
+    try {
+        const convoyId = parseInt(req.params.id, 10);
+        if (!Number.isInteger(convoyId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid convoy id',
+                data: null
+            });
+        }
+
+        const member = await convoyModel.getMember(convoyId, req.user.id);
+        if (!member) {
+            return res.status(403).json({
+                success: false,
+                status: 'ERROR',
+                message: 'You are not an active member of this convoy',
+                data: null
+            });
+        }
+
+        const limit = parseInt(req.query.limit || '50', 10);
+        const offset = parseInt(req.query.offset || '0', 10);
+        const result = await convoyModel.listConvoyMessages(convoyId, limit, offset);
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: {
+                messages: result.messages,
+                pagination: {
+                    total: result.total,
+                    limit: result.limit,
+                    offset: result.offset,
+                    hasMore: result.offset + result.limit < result.total
+                }
+            }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to list convoy messages',
+            data: null
+        });
+    }
+};

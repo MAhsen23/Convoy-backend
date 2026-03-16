@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import * as chatModel from './chatModel.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -274,4 +275,78 @@ export const respondInvite = async (inviteId, inviteeId, status) => {
         .maybeSingle();
     if (error) throw new Error(error.message);
     return data;
+};
+
+export const getConvoyConversationByConvoyId = async (convoyId) => {
+    const { data, error } = await db
+        .from('conversations')
+        .select('id, type, convoy_id, created_at')
+        .eq('type', 'convoy')
+        .eq('convoy_id', convoyId)
+        .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data;
+};
+
+export const getConvoyConversationById = async (conversationId) => {
+    const { data, error } = await db
+        .from('conversations')
+        .select('id, type, convoy_id, created_at')
+        .eq('id', conversationId)
+        .eq('type', 'convoy')
+        .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data;
+};
+
+export const createConvoyMessageByConversationId = async (
+    conversationId,
+    senderId,
+    content,
+    type = 'text',
+    metadata = null
+) => {
+    return chatModel.createMessageWithSender(
+        conversationId,
+        senderId,
+        content,
+        type,
+        metadata
+    );
+};
+
+export const listConvoyMessages = async (convoyId, limit = 50, offset = 0) => {
+    const convoyConversation = await getConvoyConversationByConvoyId(convoyId);
+    if (!convoyConversation) {
+        return { messages: [], total: 0, limit, offset };
+    }
+
+    const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const safeOffset = Math.max(offset, 0);
+
+    const { data, error, count } = await db
+        .from('messages')
+        .select('id, conversation_id, sender_id, type, content, metadata, created_at, sender:users!messages_sender_id_fkey(id, username, profile_picture_url, status)', { count: 'exact' })
+        .eq('conversation_id', convoyConversation.id)
+        .order('created_at', { ascending: false })
+        .range(safeOffset, safeOffset + safeLimit - 1);
+    if (error) throw new Error(error.message);
+
+    const messages = (data || []).map((m) => ({
+        id: m.id,
+        conversation_id: m.conversation_id,
+        sender_id: m.sender_id,
+        type: m.type,
+        content: m.content,
+        metadata: m.metadata,
+        created_at: m.created_at,
+        sender: m.sender || null
+    }));
+
+    return {
+        messages,
+        total: count || 0,
+        limit: safeLimit,
+        offset: safeOffset
+    };
 };
