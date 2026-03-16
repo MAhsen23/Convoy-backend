@@ -73,7 +73,6 @@ export const sendMessage = async (req, res) => {
         const content = String(req.body.content || "").trim();
         const metadata = req.body.metadata || null;
 
-        let conversation = null;
         if (!content) {
             return res.status(400).json({
                 success: false,
@@ -133,7 +132,7 @@ export const sendMessage = async (req, res) => {
             });
         }
 
-        conversation = await chatModel.getOrCreateDirectConversation(userId, toUserId);
+        let conversation = await chatModel.getOrCreateDirectConversation(userId, toUserId);
         const conversationId = conversation.id;
 
         const message = await chatModel.createMessage(
