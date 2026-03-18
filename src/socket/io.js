@@ -62,6 +62,7 @@ export const initSocket = (httpServer) => {
     if (ioInstance) return ioInstance;
 
     ioInstance = new Server(httpServer, {
+        maxHttpBufferSize: Number(process.env.SOCKET_MAX_HTTP_BUFFER_SIZE || 1e6),
         cors: {
             origin: config.socket.corsOrigins,
             methods: ['GET', 'POST', 'PATCH', 'DELETE'],

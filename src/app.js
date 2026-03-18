@@ -12,12 +12,13 @@ import logRoutes from './routes/logRoutes.js';
 import { requestLogger } from './middleware/requestLogger.js';
 
 const app = express();
+const REQUEST_BODY_LIMIT = process.env.REQUEST_BODY_LIMIT || '1mb';
 
 app.use(helmet());
 app.use(cors());
 app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: REQUEST_BODY_LIMIT }));
 app.use(requestLogger);
 
 app.get('/health', (req, res) => {
@@ -51,6 +52,14 @@ app.use((req, res, next) => {
 });
 
 app.use((err, req, res, next) => {
+    if (err?.type === 'entity.too.large') {
+        return res.status(413).json({
+            success: false,
+            status: 'ERROR',
+            message: 'Request payload is too large',
+            data: null
+        });
+    }
     res.status(500).json({
         success: false,
         status: 'ERROR',
