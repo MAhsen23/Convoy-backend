@@ -252,6 +252,101 @@ export const endConvoy = async (req, res) => {
     }
 };
 
+export const updateConvoyStatus = async (req, res) => {
+    try {
+        const convoyId = parseInt(req.params.id, 10);
+        if (!Number.isInteger(convoyId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid convoy id',
+                data: null
+            });
+        }
+
+        const convoy = await convoyModel.getConvoyById(convoyId);
+        if (!convoy) {
+            return res.status(404).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Convoy not found',
+                data: null
+            });
+        }
+
+        if (convoy.created_by !== req.user.id) {
+            return res.status(403).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Only convoy leader can update convoy status',
+                data: null
+            });
+        }
+
+        const action = String(req.body?.action || '').trim().toLowerCase();
+        const status = String(req.body?.status || '').trim().toLowerCase();
+        let targetStatus = null;
+
+        if (action === 'start') targetStatus = 'active';
+        if (action === 'end') targetStatus = 'ended';
+        if (status === 'active' || status === 'ended') targetStatus = status;
+
+        if (!targetStatus) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Provide action=start|end or status=active|ended',
+                data: null
+            });
+        }
+
+        if (targetStatus === convoy.status) {
+            return res.status(200).json({
+                success: true,
+                status: 'OK',
+                message: `Convoy is already ${targetStatus}`,
+                data: { convoy: convoySummary(convoy) }
+            });
+        }
+
+        if (targetStatus === 'ended') {
+            const ended = await convoyModel.endConvoy(convoyId);
+            emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:ended', {
+                convoy_id: convoyId,
+                ended_by: req.user.id,
+                ended_at: ended?.ended_at || new Date().toISOString()
+            });
+            return res.status(200).json({
+                success: true,
+                status: 'OK',
+                message: 'Convoy ended',
+                data: { convoy: convoySummary(ended) }
+            });
+        }
+
+        const started = await convoyModel.startConvoy(convoyId);
+        emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:started', {
+            convoy_id: convoyId,
+            started_by: req.user.id,
+            started_at: started?.started_at || new Date().toISOString()
+        });
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            message: 'Convoy started',
+            data: { convoy: convoySummary(started) }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to update convoy status',
+            data: null
+        });
+    }
+};
+
 export const listMembers = async (req, res) => {
     try {
         const convoyId = parseInt(req.params.id, 10);

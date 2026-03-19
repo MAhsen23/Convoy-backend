@@ -223,6 +223,22 @@ export const endConvoy = async (convoyId) => {
     return data;
 };
 
+export const startConvoy = async (convoyId) => {
+    const now = new Date().toISOString();
+    const { data, error } = await db
+        .from('convoys')
+        .update({
+            status: 'active',
+            started_at: now,
+            ended_at: null
+        })
+        .eq('id', convoyId)
+        .select('*')
+        .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data;
+};
+
 export const createInvite = async (convoyId, inviterId, inviteeId) => {
     const { data, error } = await db
         .from('convoy_invites')

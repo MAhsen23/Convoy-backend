@@ -11,6 +11,7 @@ router.get('/current', convoyController.getCurrentConvoy);
 router.post('/join', convoyController.joinByCode);
 router.post('/:id/leave', convoyController.leaveConvoy);
 router.post('/:id/end', convoyController.endConvoy);
+router.patch('/:id/status', convoyController.updateConvoyStatus);
 router.get('/:id/members', convoyController.listMembers);
 router.post('/:id/messages', convoyController.sendConvoyMessage);
 router.get('/:id/messages', convoyController.listConvoyMessages);
