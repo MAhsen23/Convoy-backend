@@ -50,7 +50,7 @@ export const getActiveConvoyForUser = async (userId) => {
         .select('convoys(*)')
         .eq('user_id', userId)
         .eq('status', 'active')
-        .eq('convoys.status', 'active')
+        .in('convoys.status', ['active', 'started'])
         .maybeSingle();
     if (error) throw new Error(error.message);
     return data?.convoys || null;
@@ -197,7 +197,7 @@ export const endConvoy = async (convoyId) => {
             ended_at: now
         })
         .eq('id', convoyId)
-        .eq('status', 'active')
+        .in('status', ['active', 'started'])
         .select('*')
         .maybeSingle();
     if (error) throw new Error(error.message);
@@ -228,11 +228,12 @@ export const startConvoy = async (convoyId) => {
     const { data, error } = await db
         .from('convoys')
         .update({
-            status: 'active',
+            status: 'started',
             started_at: now,
             ended_at: null
         })
         .eq('id', convoyId)
+        .eq('status', 'active')
         .select('*')
         .maybeSingle();
     if (error) throw new Error(error.message);

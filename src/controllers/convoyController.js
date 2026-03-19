@@ -287,15 +287,15 @@ export const updateConvoyStatus = async (req, res) => {
         const status = String(req.body?.status || '').trim().toLowerCase();
         let targetStatus = null;
 
-        if (action === 'start') targetStatus = 'active';
+        if (action === 'start') targetStatus = 'started';
         if (action === 'end') targetStatus = 'ended';
-        if (status === 'active' || status === 'ended') targetStatus = status;
+        if (status === 'started' || status === 'ended') targetStatus = status;
 
         if (!targetStatus) {
             return res.status(400).json({
                 success: false,
                 status: 'ERROR',
-                message: 'Provide action=start|end or status=active|ended',
+                message: 'Provide action=start|end or status=started|ended',
                 data: null
             });
         }
@@ -324,7 +324,24 @@ export const updateConvoyStatus = async (req, res) => {
             });
         }
 
+        if (convoy.status !== 'active') {
+            return res.status(409).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Only active convoy can be started',
+                data: { convoy: convoySummary(convoy) }
+            });
+        }
+
         const started = await convoyModel.startConvoy(convoyId);
+        if (!started) {
+            return res.status(409).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Convoy could not be started',
+                data: { convoy: convoySummary(convoy) }
+            });
+        }
         emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:started', {
             convoy_id: convoyId,
             started_by: req.user.id,
