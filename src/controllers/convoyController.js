@@ -84,10 +84,12 @@ export const getCurrentConvoy = async (req, res) => {
         let convoyData = convoySummary(convoy);
         if (convoy) {
             const activeMemberCount = await convoyModel.countActiveMembers(convoy.id);
+            const convoyConversation = await convoyModel.getConvoyConversationByConvoyId(convoy.id);
             convoyData = {
                 ...convoyData,
                 active_member_count: activeMemberCount,
-                is_leader: convoy.created_by === req.user.id
+                is_leader: convoy.created_by === req.user.id,
+                conversation_id: convoyConversation?.id ?? null
             };
         }
         return res.status(200).json({
