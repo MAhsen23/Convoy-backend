@@ -1,6 +1,8 @@
 import * as userModel from '../models/userModel.js';
 import * as convoyModel from '../models/convoyModel.js';
 import * as chatModel from '../models/chatModel.js';
+import config from '../config/config.js';
+import { generateRtcTokenForUid } from '../utils/agoraToken.js';
 import { emitToConvoyExceptUsers, emitToUser, emitToUsers } from '../socket/io.js';
 
 const convoySummary = (c) =>
@@ -747,6 +749,101 @@ export const listConvoyMessages = async (req, res) => {
             success: false,
             status: 'ERROR',
             message: err.message || 'Failed to list convoy messages',
+            data: null
+        });
+    }
+};
+
+export const generateConvoyVoiceToken = async (req, res) => {
+    try {
+        const convoyId = parseInt(req.params.id, 10);
+        if (!Number.isInteger(convoyId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid convoy id',
+                data: null
+            });
+        }
+
+        const convoy = await convoyModel.getConvoyById(convoyId);
+        if (!convoy) {
+            return res.status(404).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Convoy not found',
+                data: null
+            });
+        }
+
+        if (!['started'].includes(String(convoy.status || '').toLowerCase())) {
+            return res.status(409).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Voice call is only available for active or started convoy',
+                data: null
+            });
+        }
+
+        const member = await convoyModel.getMember(convoyId, req.user.id);
+        if (!member) {
+            return res.status(403).json({
+                success: false,
+                status: 'ERROR',
+                message: 'You are not an active member of this convoy',
+                data: null
+            });
+        }
+
+        if (!config.agora.appId || !config.agora.appCertificate) {
+            return res.status(500).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Agora is not configured on server',
+                data: null
+            });
+        }
+
+        const requestedRole = String(req.body?.role || 'publisher').trim().toLowerCase();
+        if (!['publisher', 'subscriber'].includes(requestedRole)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'role must be publisher or subscriber',
+                data: null
+            });
+        }
+
+        const requestedExpiry = req.body?.expiry_seconds
+            ? parseInt(req.body.expiry_seconds, 10)
+            : config.agora.tokenExpirySeconds;
+
+        const channelName = `convoy_${convoyId}`;
+        const tokenData = generateRtcTokenForUid({
+            appId: config.agora.appId,
+            appCertificate: config.agora.appCertificate,
+            channelName,
+            uid: req.user.id,
+            role: requestedRole,
+            expirySeconds: requestedExpiry
+        });
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            message: 'Convoy voice token generated',
+            data: {
+                app_id: config.agora.appId,
+                channel_name: channelName,
+                convoy_id: convoyId,
+                ...tokenData
+            }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to generate convoy voice token',
             data: null
         });
     }

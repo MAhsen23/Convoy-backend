@@ -19,5 +19,10 @@ export default {
         corsOrigins: process.env.SOCKET_CORS_ORIGIN
             ? process.env.SOCKET_CORS_ORIGIN.split(',').map(v => v.trim())
             : '*'
+    },
+    agora: {
+        appId: process.env.AGORA_APP_ID || '',
+        appCertificate: process.env.AGORA_APP_CERTIFICATE || '',
+        tokenExpirySeconds: parseInt(process.env.AGORA_TOKEN_EXPIRY_SECONDS || '3600', 10)
     }
 };
