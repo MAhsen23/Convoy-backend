@@ -193,7 +193,7 @@ export const listUserConversations = async (userId) => {
         direct_user_two_id: r.direct_user_two_id,
         created_at: r.created_at,
         latest_message: r.latest_message,
-        latest_message_at: r.latest_message_at,
+        latest_message_at: r.latest_message_at || r.created_at,
         unread_count: r.unread_count || 0,
         other_user: r.type === 'direct'
             ? {
