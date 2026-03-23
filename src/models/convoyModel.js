@@ -115,7 +115,10 @@ export const createConvoy = async ({ created_by, name, icon = null, max_members 
     await db.from('users').update({ status: 'in_convoy' }).eq('id', created_by);
     const convoyConversationId = await getOrCreateConvoyConversation(created.id, created_by);
     await ensureConversationMember(convoyConversationId, created_by);
-    return created;
+    return {
+        ...created,
+        conversation_id: convoyConversationId
+    };
 };
 
 export const countActiveMembers = async (convoyId) => {

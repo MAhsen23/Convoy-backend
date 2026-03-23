@@ -61,14 +61,18 @@ export const createConvoy = async (req, res) => {
             icon,
             max_members
         });
+        const convoyWithConversationId = {
+            ...convoySummary(convoy),
+            conversation_id: convoy.conversation_id ?? null
+        };
         emitToUser(req.user.id, 'convoy:created', {
-            convoy: convoySummary(convoy)
+            convoy: convoyWithConversationId
         });
         return res.status(201).json({
             success: true,
             status: 'OK',
             message: 'Convoy created',
-            data: { convoy: convoySummary(convoy) }
+            data: { convoy: convoyWithConversationId }
         });
     } catch (err) {
         return res.status(500).json({
