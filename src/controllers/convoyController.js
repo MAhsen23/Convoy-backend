@@ -339,6 +339,18 @@ export const updateConvoyStatus = async (req, res) => {
             });
         }
 
+        if (targetStatus === 'started') {
+            const count = await convoyModel.countActiveMembers(convoyId);
+            if (count < 2) {
+                return res.status(409).json({
+                    success: false,
+                    status: 'ERROR',
+                    message: 'At least 2 active members are required to start convoy',
+                    data: { convoy: convoySummary(convoy), active_member_count: count }
+                });
+            }
+        }
+
         const started = await convoyModel.startConvoy(convoyId);
         if (!started) {
             return res.status(409).json({
