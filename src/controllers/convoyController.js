@@ -155,7 +155,7 @@ export const joinByCode = async (req, res) => {
             });
         }
 
-        await convoyModel.addMember(convoy.id, req.user.id, 'member');
+        const membership = await convoyModel.addMember(convoy.id, req.user.id, 'member');
         const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoy.id))
             .filter((id) => id !== req.user.id);
         emitToUsers(otherMemberUserIds, 'convoy:member_joined', {
@@ -170,7 +170,12 @@ export const joinByCode = async (req, res) => {
             success: true,
             status: 'OK',
             message: 'Joined convoy',
-            data: { convoy: convoySummary(convoy) }
+            data: {
+                convoy: {
+                    ...convoySummary(convoy),
+                    conversation_id: membership?.conversation_id ?? null
+                }
+            }
         });
     } catch (err) {
         return res.status(500).json({
@@ -569,7 +574,7 @@ export const respondInvite = async (req, res) => {
         }
 
         const convoy = await convoyModel.getConvoyById(invite.convoy_id);
-        if (!convoy || convoy.status !== 'active') {
+        if (!convoy || !['active', 'started'].includes(String(convoy.status || '').toLowerCase())) {
             await convoyModel.respondInvite(inviteId, req.user.id, 'cancelled');
             return res.status(409).json({
                 success: false,
@@ -590,7 +595,7 @@ export const respondInvite = async (req, res) => {
         }
 
         await convoyModel.respondInvite(inviteId, req.user.id, 'accepted');
-        await convoyModel.addMember(convoy.id, req.user.id, 'member');
+        const membership = await convoyModel.addMember(convoy.id, req.user.id, 'member');
         emitToUser(invite.inviter_id, 'convoy:invite_accepted', {
             invite_id: invite.id,
             convoy_id: convoy.id,
@@ -611,7 +616,12 @@ export const respondInvite = async (req, res) => {
             success: true,
             status: 'OK',
             message: 'Joined convoy via invite',
-            data: { convoy: convoySummary(convoy) }
+            data: {
+                convoy: {
+                    ...convoySummary(convoy),
+                    conversation_id: membership?.conversation_id ?? null
+                }
+            }
         });
     } catch (err) {
         return res.status(500).json({

@@ -71,7 +71,7 @@ export const getConvoyByCode = async (code) => {
         .from('convoys')
         .select('*')
         .eq('code', String(code || '').toUpperCase())
-        .eq('status', 'active')
+        .in('status', ['active', 'started'])
         .maybeSingle();
     if (error) throw new Error(error.message);
     return data;
@@ -159,7 +159,10 @@ export const addMember = async (convoyId, userId, role = 'member') => {
     await db.from('users').update({ status: 'in_convoy' }).eq('id', userId);
     const convoyConversationId = await getOrCreateConvoyConversation(convoyId, userId);
     await ensureConversationMember(convoyConversationId, userId);
-    return data;
+    return {
+        ...data,
+        conversation_id: convoyConversationId
+    };
 };
 
 export const leaveConvoy = async (convoyId, userId) => {
