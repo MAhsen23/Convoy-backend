@@ -733,16 +733,6 @@ export const listConvoyMessages = async (req, res) => {
             });
         }
 
-        const member = await convoyModel.getMember(convoyId, req.user.id);
-        if (!member) {
-            return res.status(403).json({
-                success: false,
-                status: 'ERROR',
-                message: 'You are not an active member of this convoy',
-                data: null
-            });
-        }
-
         const limit = parseInt(req.query.limit || '50', 10);
         const offset = parseInt(req.query.offset || '0', 10);
         const result = await convoyModel.listConvoyMessages(convoyId, limit, offset);
