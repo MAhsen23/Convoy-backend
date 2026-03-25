@@ -240,8 +240,10 @@ export const endConvoy = async (req, res) => {
                 data: null
             });
         }
+        const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
+            .filter((id) => id !== req.user.id);
         const convoy = await convoyModel.endConvoy(convoyId);
-        emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:ended', {
+        emitToUsers(otherMemberUserIds, 'convoy:ended', {
             convoy_id: convoyId,
             ended_by: req.user.id,
             ended_at: convoy?.ended_at || new Date().toISOString()
@@ -320,9 +322,9 @@ export const updateConvoyStatus = async (req, res) => {
         }
 
         if (targetStatus === 'ended') {
-            const ended = await convoyModel.endConvoy(convoyId);
             const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
                 .filter((id) => id !== req.user.id);
+            const ended = await convoyModel.endConvoy(convoyId);
             emitToUsers(otherMemberUserIds, 'convoy:ended', {
                 convoy_id: convoyId,
                 ended_by: req.user.id,
@@ -357,6 +359,8 @@ export const updateConvoyStatus = async (req, res) => {
             }
         }
 
+        const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
+            .filter((id) => id !== req.user.id);
         const started = await convoyModel.startConvoy(convoyId);
         if (!started) {
             return res.status(409).json({
@@ -366,8 +370,6 @@ export const updateConvoyStatus = async (req, res) => {
                 data: { convoy: convoySummary(convoy) }
             });
         }
-        const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
-            .filter((id) => id !== req.user.id);
         emitToUsers(otherMemberUserIds, 'convoy:started', {
             convoy_id: convoyId,
             started_by: req.user.id,
