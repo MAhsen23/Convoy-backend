@@ -191,6 +191,16 @@ export const listMembers = async (convoyId) => {
     return data || [];
 };
 
+export const listActiveMemberUserIds = async (convoyId) => {
+    const { data, error } = await db
+        .from('convoy_members')
+        .select('user_id')
+        .eq('convoy_id', convoyId)
+        .eq('status', 'active');
+    if (error) throw new Error(error.message);
+    return (data || []).map((r) => r.user_id);
+};
+
 export const endConvoy = async (convoyId) => {
     const now = new Date().toISOString();
     const { data, error } = await db

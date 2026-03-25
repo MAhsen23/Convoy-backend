@@ -156,7 +156,9 @@ export const joinByCode = async (req, res) => {
         }
 
         await convoyModel.addMember(convoy.id, req.user.id, 'member');
-        emitToConvoyExceptUsers(convoy.id, [req.user.id], 'convoy:member_joined', {
+        const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoy.id))
+            .filter((id) => id !== req.user.id);
+        emitToUsers(otherMemberUserIds, 'convoy:member_joined', {
             convoy_id: convoy.id,
             user: {
                 id: req.user.id,
@@ -201,7 +203,9 @@ export const leaveConvoy = async (req, res) => {
             });
         }
         await convoyModel.leaveConvoy(convoyId, req.user.id);
-        emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:member_left', {
+        const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
+            .filter((id) => id !== req.user.id);
+        emitToUsers(otherMemberUserIds, 'convoy:member_left', {
             convoy_id: convoyId,
             user: {
                 id: req.user.id,
@@ -317,7 +321,9 @@ export const updateConvoyStatus = async (req, res) => {
 
         if (targetStatus === 'ended') {
             const ended = await convoyModel.endConvoy(convoyId);
-            emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:ended', {
+            const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
+                .filter((id) => id !== req.user.id);
+            emitToUsers(otherMemberUserIds, 'convoy:ended', {
                 convoy_id: convoyId,
                 ended_by: req.user.id,
                 ended_at: ended?.ended_at || new Date().toISOString()
@@ -360,7 +366,9 @@ export const updateConvoyStatus = async (req, res) => {
                 data: { convoy: convoySummary(convoy) }
             });
         }
-        emitToConvoyExceptUsers(convoyId, [req.user.id], 'convoy:started', {
+        const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
+            .filter((id) => id !== req.user.id);
+        emitToUsers(otherMemberUserIds, 'convoy:started', {
             convoy_id: convoyId,
             started_by: req.user.id,
             started_at: started?.started_at || new Date().toISOString()
@@ -586,7 +594,9 @@ export const respondInvite = async (req, res) => {
             convoy_id: convoy.id,
             invitee_id: req.user.id
         });
-        emitToConvoyExceptUsers(convoy.id, [req.user.id], 'convoy:member_joined', {
+        const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoy.id))
+            .filter((id) => id !== req.user.id);
+        emitToUsers(otherMemberUserIds, 'convoy:member_joined', {
             convoy_id: convoy.id,
             user: {
                 id: req.user.id,
