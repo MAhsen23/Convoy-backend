@@ -3,6 +3,8 @@ import db from '../config/db.js';
 import config from '../config/config.js';
 import { verifyToken } from '../utils/jwt.js';
 import { getUserById } from '../models/userModel.js';
+import { getConvoyById, getMember } from '../models/convoyModel.js';
+import { recordLocationUpdate } from '../services/convoyLocationStore.js';
 import { createSocketEventLog } from '../models/socketEventLogModel.js';
 
 let ioInstance = null;
@@ -171,6 +173,50 @@ export const initSocket = (httpServer) => {
             const convoyId = parseInt(payload.convoy_id, 10);
             if (!Number.isInteger(convoyId)) return;
             socket.leave(roomConvoy(convoyId));
+        });
+
+        socket.on('convoy:location_update', async (payload = {}) => {
+            const convoyId = parseInt(payload.convoy_id, 10);
+            const lat = Number(payload.lat);
+            const lng = Number(payload.lng);
+            const headingRaw =
+                payload.heading === undefined || payload.heading === null
+                    ? null
+                    : Number(payload.heading);
+            const speedRaw =
+                payload.speed === undefined || payload.speed === null ? null : Number(payload.speed);
+
+            if (!Number.isInteger(convoyId)) return;
+            if (!Number.isFinite(lat) || lat < -90 || lat > 90) return;
+            if (!Number.isFinite(lng) || lng < -180 || lng > 180) return;
+
+            try {
+                const convoy = await getConvoyById(convoyId);
+                if (!convoy || !['active', 'started'].includes(convoy.status)) return;
+
+                const membership = await getMember(convoyId, userId);
+                if (!membership) return;
+
+                const { row } = recordLocationUpdate(convoyId, userId, socket.user.username, {
+                    lat,
+                    lng,
+                    heading: headingRaw != null && Number.isFinite(headingRaw) ? headingRaw : null,
+                    speed: speedRaw != null && Number.isFinite(speedRaw) ? speedRaw : null
+                });
+
+                emitToConvoyExceptUsers(convoyId, [userId], 'convoy:member_location', {
+                    convoy_id: convoyId,
+                    user_id: row.user_id,
+                    username: row.username,
+                    lat: row.lat,
+                    lng: row.lng,
+                    heading: row.heading,
+                    speed: row.speed,
+                    distance_km: row.distance_km,
+                    updated_at: row.updated_at
+                });
+            } catch {
+            }
         });
 
         socket.on('disconnect', (reason) => {

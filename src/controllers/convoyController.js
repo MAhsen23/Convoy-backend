@@ -4,6 +4,22 @@ import * as chatModel from '../models/chatModel.js';
 import config from '../config/config.js';
 import { generateRtcTokenForUid } from '../utils/agoraToken.js';
 import { emitToConvoyExceptUsers, emitToUser, emitToUsers } from '../socket/io.js';
+import {
+    clearConvoyLocationBucket,
+    getMergedMemberLocations,
+    removeMemberFromLocationStore,
+    takeFinalRideStatsForActiveMembers
+} from '../services/convoyLocationStore.js';
+
+const persistMemberDistancesAndClearBucket = async (convoyId, rideStats) => {
+    try {
+        await convoyModel.setConvoyMembersDistanceKm(convoyId, rideStats);
+    } catch (err) {
+        console.error('[convoy] distance_km persist failed', { convoyId, message: err.message });
+    } finally {
+        clearConvoyLocationBucket(convoyId);
+    }
+};
 
 const convoySummary = (c) =>
     c
@@ -208,6 +224,7 @@ export const leaveConvoy = async (req, res) => {
             });
         }
         await convoyModel.leaveConvoy(convoyId, req.user.id);
+        removeMemberFromLocationStore(convoyId, req.user.id);
         const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
             .filter((id) => id !== req.user.id);
         emitToUsers(otherMemberUserIds, 'convoy:member_left', {
@@ -247,7 +264,10 @@ export const endConvoy = async (req, res) => {
         }
         const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
             .filter((id) => id !== req.user.id);
+        const activeMembers = await convoyModel.listMembers(convoyId);
+        const rideStats = takeFinalRideStatsForActiveMembers(convoyId, activeMembers);
         const convoy = await convoyModel.endConvoy(convoyId);
+        await persistMemberDistancesAndClearBucket(convoyId, rideStats);
         emitToUsers(otherMemberUserIds, 'convoy:ended', {
             convoy_id: convoyId,
             ended_by: req.user.id,
@@ -329,7 +349,10 @@ export const updateConvoyStatus = async (req, res) => {
         if (targetStatus === 'ended') {
             const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
                 .filter((id) => id !== req.user.id);
+            const activeMembers = await convoyModel.listMembers(convoyId);
+            const rideStats = takeFinalRideStatsForActiveMembers(convoyId, activeMembers);
             const ended = await convoyModel.endConvoy(convoyId);
+            await persistMemberDistancesAndClearBucket(convoyId, rideStats);
             emitToUsers(otherMemberUserIds, 'convoy:ended', {
                 convoy_id: convoyId,
                 ended_by: req.user.id,
@@ -421,6 +444,55 @@ export const listMembers = async (req, res) => {
             success: false,
             status: 'ERROR',
             message: err.message || 'Failed to list convoy members',
+            data: null
+        });
+    }
+};
+
+export const listMemberLocations = async (req, res) => {
+    try {
+        const convoyId = parseInt(req.params.id, 10);
+        if (!Number.isInteger(convoyId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid convoy id',
+                data: null
+            });
+        }
+
+        const member = await convoyModel.getMember(convoyId, req.user.id);
+        if (!member) {
+            return res.status(403).json({
+                success: false,
+                status: 'ERROR',
+                message: 'You are not an active member of this convoy',
+                data: null
+            });
+        }
+
+        const convoy = await convoyModel.getConvoyById(convoyId);
+        if (!convoy || !['active', 'started'].includes(convoy.status)) {
+            return res.status(404).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Convoy not found or not active',
+                data: null
+            });
+        }
+
+        const members = await convoyModel.listMembers(convoyId);
+        const locations = getMergedMemberLocations(convoyId, members);
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: { locations }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to load member locations',
             data: null
         });
     }
