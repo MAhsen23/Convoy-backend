@@ -5,7 +5,7 @@ module.exports = {
       script: "src/server.js",
       cwd: process.env.PROJECT_PATH || `${process.env.HOME}/convoy-backend`,
       instances: 1,
-      exec_mode: "cluster",
+      exec_mode: "fork",
       autorestart: true,
       watch: false,
       max_memory_restart: "500M",
