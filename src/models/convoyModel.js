@@ -186,7 +186,7 @@ export const leaveConvoy = async (convoyId, userId) => {
 export const listMembers = async (convoyId) => {
     const { data, error } = await db
         .from('convoy_members')
-        .select('id, role, status, joined_at, users(id, unique_id, username, profile_picture_url, status)')
+        .select('user_id, id, role, status, joined_at, distance_km, users(id, unique_id, username, profile_picture_url, status)')
         .eq('convoy_id', convoyId)
         .eq('status', 'active')
         .order('joined_at', { ascending: true });
@@ -202,6 +202,24 @@ export const listActiveMemberUserIds = async (convoyId) => {
         .eq('status', 'active');
     if (error) throw new Error(error.message);
     return (data || []).map((r) => r.user_id);
+};
+
+/**
+ * @param {Array<{ user_id: number, distance_km?: number }>} rows
+ */
+export const setConvoyMembersDistanceKm = async (convoyId, rows) => {
+    if (!rows?.length) return;
+    for (const row of rows) {
+        const userId = row.user_id;
+        if (!Number.isInteger(userId)) continue;
+        const km = Math.round(Math.max(0, Number(row.distance_km) || 0) * 1000) / 1000;
+        const { error } = await db
+            .from('convoy_members')
+            .update({ distance_km: km })
+            .eq('convoy_id', convoyId)
+            .eq('user_id', userId);
+        if (error) throw new Error(error.message);
+    }
 };
 
 export const endConvoy = async (convoyId) => {
