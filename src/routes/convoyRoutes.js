@@ -12,6 +12,7 @@ router.post('/join', convoyController.joinByCode);
 router.post('/:id/leave', convoyController.leaveConvoy);
 router.post('/:id/end', convoyController.endConvoy);
 router.patch('/:id/status', convoyController.updateConvoyStatus);
+router.patch('/:id/destination', convoyController.updateConvoyDestination);
 router.get('/:id/members', convoyController.listMembers);
 router.get('/:id/member-locations', convoyController.listMemberLocations);
 router.post('/:id/voice/token', convoyController.generateConvoyVoiceToken);

@@ -31,6 +31,14 @@ const convoySummary = (c) =>
             created_by: c.created_by,
             status: c.status,
             max_members: c.max_members,
+            destination: {
+                lat: c.destination_lat ?? null,
+                lng: c.destination_lng ?? null,
+                name: c.destination_name ?? null,
+                address: c.destination_address ?? null,
+                place_id: c.destination_place_id ?? null,
+                updated_at: c.destination_updated_at ?? null
+            },
             started_at: c.started_at,
             ended_at: c.ended_at,
             created_at: c.created_at
@@ -71,11 +79,51 @@ export const createConvoy = async (req, res) => {
             });
         }
 
+        const destination = req.body?.destination ?? null;
+        const dest = destination && typeof destination === 'object' ? destination : null;
+        const destLat = dest?.lat === undefined || dest?.lat === null ? null : Number(dest.lat);
+        const destLng = dest?.lng === undefined || dest?.lng === null ? null : Number(dest.lng);
+        if (dest && (destLat === null || destLng === null)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'destination.lat and destination.lng must be provided together',
+                data: null
+            });
+        }
+        if (destLat !== null && (!Number.isFinite(destLat) || destLat < -90 || destLat > 90)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'destination.lat must be between -90 and 90',
+                data: null
+            });
+        }
+        if (destLng !== null && (!Number.isFinite(destLng) || destLng < -180 || destLng > 180)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'destination.lng must be between -180 and 180',
+                data: null
+            });
+        }
+        const destinationPayload =
+            destLat !== null && destLng !== null
+                ? {
+                    lat: destLat,
+                    lng: destLng,
+                    name: dest?.name != null ? String(dest.name).trim() : null,
+                    address: dest?.address != null ? String(dest.address).trim() : null,
+                    place_id: dest?.place_id != null ? String(dest.place_id).trim() : null
+                }
+                : null;
+
         const convoy = await convoyModel.createConvoy({
             created_by: req.user.id,
             name: req.body.name,
             icon,
-            max_members
+            max_members,
+            destination: destinationPayload
         });
         const convoyWithConversationId = {
             ...convoySummary(convoy),
@@ -95,6 +143,117 @@ export const createConvoy = async (req, res) => {
             success: false,
             status: 'ERROR',
             message: err.message || 'Failed to create convoy',
+            data: null
+        });
+    }
+};
+
+export const updateConvoyDestination = async (req, res) => {
+    try {
+        const convoyId = parseInt(req.params.id, 10);
+        if (!Number.isInteger(convoyId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid convoy id',
+                data: null
+            });
+        }
+
+        const member = await convoyModel.getMember(convoyId, req.user.id);
+        if (!member || member.role !== 'leader') {
+            return res.status(403).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Only convoy leader can update destination',
+                data: null
+            });
+        }
+
+        const convoy = await convoyModel.getConvoyById(convoyId);
+        if (!convoy || !['active', 'started'].includes(convoy.status)) {
+            return res.status(404).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Convoy not found or not active',
+                data: null
+            });
+        }
+
+        const destination = req.body?.destination;
+        if (destination === null) {
+            const updated = await convoyModel.updateConvoyDestination(convoyId, null);
+            const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId)).filter(
+                (id) => id !== req.user.id
+            );
+            emitToUsers(otherMemberUserIds, 'convoy:destination_updated', {
+                convoy_id: convoyId,
+                destination: convoySummary(updated)?.destination ?? null
+            });
+            return res.status(200).json({
+                success: true,
+                status: 'OK',
+                message: 'Destination cleared',
+                data: { convoy: convoySummary(updated) }
+            });
+        }
+
+        if (!destination || typeof destination !== 'object') {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'destination must be an object or null',
+                data: null
+            });
+        }
+
+        const lat = Number(destination.lat);
+        const lng = Number(destination.lng);
+        if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'destination.lat must be between -90 and 90',
+                data: null
+            });
+        }
+        if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'destination.lng must be between -180 and 180',
+                data: null
+            });
+        }
+
+        const payload = {
+            lat,
+            lng,
+            name: destination?.name != null ? String(destination.name).trim() : null,
+            address: destination?.address != null ? String(destination.address).trim() : null,
+            place_id: destination?.place_id != null ? String(destination.place_id).trim() : null
+        };
+
+        const updated = await convoyModel.updateConvoyDestination(convoyId, payload);
+        const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId)).filter(
+            (id) => id !== req.user.id
+        );
+        emitToUsers(otherMemberUserIds, 'convoy:destination_updated', {
+            convoy_id: convoyId,
+            destination: convoySummary(updated)?.destination ?? null
+        });
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            message: 'Destination updated',
+            data: { convoy: convoySummary(updated) }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to update destination',
             data: null
         });
     }

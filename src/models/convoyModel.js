@@ -77,11 +77,18 @@ export const getConvoyByCode = async (code) => {
     return data;
 };
 
-export const createConvoy = async ({ created_by, name, icon = null, max_members = 15 }) => {
+export const createConvoy = async ({
+    created_by,
+    name,
+    icon = null,
+    max_members = 15,
+    destination = null
+}) => {
     let created = null;
     let lastError = null;
     for (let i = 0; i < 8; i += 1) {
         const code = generateCode(6);
+        const dest = destination || null;
         const { data, error } = await db
             .from('convoys')
             .insert({
@@ -89,7 +96,13 @@ export const createConvoy = async ({ created_by, name, icon = null, max_members 
                 name: name ? String(name).trim() : null,
                 icon: icon ? String(icon).trim() : null,
                 created_by,
-                max_members
+                max_members,
+                destination_lat: dest?.lat ?? null,
+                destination_lng: dest?.lng ?? null,
+                destination_name: dest?.name ?? null,
+                destination_address: dest?.address ?? null,
+                destination_place_id: dest?.place_id ?? null,
+                destination_updated_at: dest?.lat != null && dest?.lng != null ? new Date().toISOString() : null
             })
             .select('*')
             .single();
@@ -119,6 +132,26 @@ export const createConvoy = async ({ created_by, name, icon = null, max_members 
         ...created,
         conversation_id: convoyConversationId
     };
+};
+
+export const updateConvoyDestination = async (convoyId, destination) => {
+    const dest = destination || null;
+    const now = new Date().toISOString();
+    const { data, error } = await db
+        .from('convoys')
+        .update({
+            destination_lat: dest?.lat ?? null,
+            destination_lng: dest?.lng ?? null,
+            destination_name: dest?.name ?? null,
+            destination_address: dest?.address ?? null,
+            destination_place_id: dest?.place_id ?? null,
+            destination_updated_at: now
+        })
+        .eq('id', convoyId)
+        .select('*')
+        .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data;
 };
 
 export const countActiveMembers = async (convoyId) => {
