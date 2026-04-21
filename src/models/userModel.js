@@ -10,6 +10,7 @@ const USER_PUBLIC_FIELDS = [
     'id',
     'unique_id',
     'username',
+    'display_name',
     'email',
     'phone',
     'profile_picture_url',
@@ -172,6 +173,7 @@ export const createUser = async (payload) => {
 export const updateUser = async (userId, updates) => {
     const allowed = [
         'username',
+        'display_name',
         'profile_picture_url',
         'udid',
         'device_info',

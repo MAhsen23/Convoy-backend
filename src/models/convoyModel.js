@@ -219,7 +219,9 @@ export const leaveConvoy = async (convoyId, userId) => {
 export const listMembers = async (convoyId) => {
     const { data, error } = await db
         .from('convoy_members')
-        .select('user_id, id, role, status, joined_at, distance_km, users(id, unique_id, username, profile_picture_url, status)')
+        .select(
+            'user_id, id, role, status, joined_at, distance_km, users(id, unique_id, username, display_name, profile_picture_url, status)'
+        )
         .eq('convoy_id', convoyId)
         .eq('status', 'active')
         .order('joined_at', { ascending: true });

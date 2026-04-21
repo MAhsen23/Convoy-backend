@@ -208,6 +208,7 @@ export const initSocket = (httpServer) => {
                     convoy_id: convoyId,
                     user_id: row.user_id,
                     username: row.username,
+                    display_name: socket.user.display_name ?? null,
                     lat: row.lat,
                     lng: row.lng,
                     heading: row.heading,
