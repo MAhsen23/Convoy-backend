@@ -27,7 +27,7 @@ const convoySummary = (c) =>
             id: c.id,
             code: c.code,
             name: c.name,
-            icon: c.icon || null,
+            icon_url: c.icon_url || null,
             created_by: c.created_by,
             status: c.status,
             max_members: c.max_members,
@@ -69,15 +69,7 @@ export const createConvoy = async (req, res) => {
             });
         }
 
-        const icon = req.body.icon ? String(req.body.icon).trim() : null;
-        if (icon && icon.length > 100) {
-            return res.status(400).json({
-                success: false,
-                status: 'ERROR',
-                message: 'icon must be at most 100 characters',
-                data: null
-            });
-        }
+        const icon_url = req.body.icon_url ? String(req.body.icon_url).trim() : null;
 
         const destination = req.body?.destination ?? null;
         const dest = destination && typeof destination === 'object' ? destination : null;
@@ -121,7 +113,7 @@ export const createConvoy = async (req, res) => {
         const convoy = await convoyModel.createConvoy({
             created_by: req.user.id,
             name: req.body.name,
-            icon,
+            icon_url,
             max_members,
             destination: destinationPayload
         });

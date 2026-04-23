@@ -210,7 +210,7 @@ export const listUserConversations = async (userId) => {
                 id: r.convoy_id,
                 code: r.convoy_code,
                 name: r.convoy_name,
-                icon: r.convoy_icon || null,
+                icon_url: r.convoy_icon || null,
                 status: r.convoy_status,
                 max_members: r.convoy_max_members,
                 started_at: r.convoy_started_at,

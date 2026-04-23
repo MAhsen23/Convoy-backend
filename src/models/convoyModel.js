@@ -80,7 +80,7 @@ export const getConvoyByCode = async (code) => {
 export const createConvoy = async ({
     created_by,
     name,
-    icon = null,
+    icon_url = null,
     max_members = 15,
     destination = null
 }) => {
@@ -94,7 +94,7 @@ export const createConvoy = async ({
             .insert({
                 code,
                 name: name ? String(name).trim() : null,
-                icon: icon ? String(icon).trim() : null,
+                icon_url: icon_url ? String(icon_url).trim() : null,
                 created_by,
                 max_members,
                 destination_lat: dest?.lat ?? null,
