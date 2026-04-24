@@ -1,7 +1,11 @@
 -- Drop legacy convoys.icon column (replaced by icon_url)
 -- Requires get_user_conversations to use cv.icon_url instead of cv.icon.
 
-CREATE OR REPLACE FUNCTION get_user_conversations(p_user_id INTEGER)
+-- IMPORTANT: Postgres cannot CREATE OR REPLACE a function if the return type changes.
+-- Drop then recreate to move convoy_icon from VARCHAR(100) -> TEXT (to support URLs).
+DROP FUNCTION IF EXISTS get_user_conversations(INTEGER);
+
+CREATE FUNCTION get_user_conversations(p_user_id INTEGER)
 RETURNS TABLE (
   id INTEGER,
   type TEXT,
