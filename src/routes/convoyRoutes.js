@@ -8,7 +8,9 @@ router.use(authenticate);
 
 router.post('/', convoyController.createConvoy);
 router.get('/current', convoyController.getCurrentConvoy);
+router.get('/history', convoyController.listConvoyHistory);
 router.post('/join', convoyController.joinByCode);
+router.get('/:id', convoyController.getConvoyDetails);
 router.post('/:id/leave', convoyController.leaveConvoy);
 router.post('/:id/end', convoyController.endConvoy);
 router.patch('/:id/status', convoyController.updateConvoyStatus);

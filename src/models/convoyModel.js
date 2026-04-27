@@ -176,6 +176,17 @@ export const getMember = async (convoyId, userId) => {
     return data;
 };
 
+export const getMemberAnyStatus = async (convoyId, userId) => {
+    const { data, error } = await db
+        .from('convoy_members')
+        .select('*')
+        .eq('convoy_id', convoyId)
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data;
+};
+
 export const addMember = async (convoyId, userId, role = 'member') => {
     const { data, error } = await db
         .from('convoy_members')
@@ -227,6 +238,83 @@ export const listMembers = async (convoyId) => {
         .order('joined_at', { ascending: true });
     if (error) throw new Error(error.message);
     return data || [];
+};
+
+export const listMembersAnyStatus = async (convoyId) => {
+    const { data, error } = await db
+        .from('convoy_members')
+        .select(
+            'user_id, id, role, status, joined_at, left_at, distance_km, users(id, unique_id, username, display_name, profile_picture_url, status)'
+        )
+        .eq('convoy_id', convoyId)
+        .order('joined_at', { ascending: true });
+    if (error) throw new Error(error.message);
+    return data || [];
+};
+
+export const listUserEndedConvoyHistory = async (userId, limit = 20, offset = 0) => {
+    const safeLimit = Math.min(Math.max(limit, 1), 50);
+    const safeOffset = Math.max(offset, 0);
+
+    const { data, error } = await db
+        .from('convoy_members')
+        .select(
+            'convoy_id, role, status, joined_at, left_at, distance_km, convoys!inner(id, code, name, icon_url, created_by, status, max_members, started_at, ended_at, created_at, destination_lat, destination_lng, destination_name, destination_address, destination_place_id, destination_updated_at)'
+        )
+        .eq('user_id', userId)
+        .eq('convoys.status', 'ended')
+        .order('ended_at', { foreignTable: 'convoys', ascending: false })
+        .range(safeOffset, safeOffset + safeLimit - 1);
+    if (error) throw new Error(error.message);
+
+    const { count, error: countErr } = await db
+        .from('convoy_members')
+        .select('id, convoys!inner(id)', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('convoys.status', 'ended');
+    if (countErr) throw new Error(countErr.message);
+
+    const rows = data || [];
+    const convoys = rows.map((r) => ({
+        convoy: r.convoys,
+        membership: {
+            role: r.role,
+            status: r.status,
+            joined_at: r.joined_at,
+            left_at: r.left_at,
+            distance_km: r.distance_km ?? 0
+        }
+    }));
+
+    // Compute member_count for returned convoys (cheap single extra query)
+    const convoyIds = [...new Set(rows.map((r) => r.convoy_id).filter((id) => Number.isInteger(id)))];
+    let memberCountByConvoyId = {};
+    if (convoyIds.length > 0) {
+        const { data: memberRows, error: mcErr } = await db
+            .from('convoy_members')
+            .select('convoy_id')
+            .in('convoy_id', convoyIds);
+        if (mcErr) throw new Error(mcErr.message);
+        memberCountByConvoyId = (memberRows || []).reduce((acc, m) => {
+            acc[m.convoy_id] = (acc[m.convoy_id] || 0) + 1;
+            return acc;
+        }, {});
+    }
+
+    return {
+        convoys: convoys.map((x) => ({
+            ...x.convoy,
+            member_count: memberCountByConvoyId[x.convoy.id] || 0,
+            my_role: x.membership.role,
+            my_membership_status: x.membership.status,
+            my_joined_at: x.membership.joined_at,
+            my_left_at: x.membership.left_at,
+            my_distance_km: x.membership.distance_km
+        })),
+        total: count || 0,
+        limit: safeLimit,
+        offset: safeOffset
+    };
 };
 
 export const listActiveMemberUserIds = async (convoyId) => {

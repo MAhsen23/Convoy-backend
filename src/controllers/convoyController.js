@@ -278,6 +278,125 @@ export const getCurrentConvoy = async (req, res) => {
     }
 };
 
+export const listConvoyHistory = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit || '20', 10);
+        const offset = parseInt(req.query.offset || '0', 10);
+        const { convoys, total, ...page } = await convoyModel.listUserEndedConvoyHistory(
+            req.user.id,
+            limit,
+            offset
+        );
+
+        const payload = (convoys || []).map((c) => ({
+            ...convoySummary(c),
+            member_count: c.member_count || 0,
+            my_role: c.my_role,
+            my_membership_status: c.my_membership_status,
+            my_joined_at: c.my_joined_at,
+            my_left_at: c.my_left_at,
+            my_distance_km: c.my_distance_km ?? 0
+        }));
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: {
+                convoys: payload,
+                pagination: {
+                    total,
+                    limit: page.limit,
+                    offset: page.offset,
+                    hasMore: page.offset + page.limit < total
+                }
+            }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to list convoy history',
+            data: null
+        });
+    }
+};
+
+export const getConvoyDetails = async (req, res) => {
+    try {
+        const convoyId = parseInt(req.params.id, 10);
+        if (!Number.isInteger(convoyId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid convoy id',
+                data: null
+            });
+        }
+
+        const membership = await convoyModel.getMemberAnyStatus(convoyId, req.user.id);
+        if (!membership) {
+            return res.status(403).json({
+                success: false,
+                status: 'ERROR',
+                message: 'You are not a member of this convoy',
+                data: null
+            });
+        }
+
+        const convoy = await convoyModel.getConvoyById(convoyId);
+        if (!convoy) {
+            return res.status(404).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Convoy not found',
+                data: null
+            });
+        }
+
+        const members = await convoyModel.listMembersAnyStatus(convoyId);
+        const mappedMembers = (members || []).map((m) => ({
+            user_id: m.user_id,
+            role: m.role,
+            status: m.status,
+            joined_at: m.joined_at,
+            left_at: m.left_at || null,
+            distance_km: m.distance_km ?? 0,
+            user: m.users
+                ? {
+                    id: m.users.id,
+                    unique_id: m.users.unique_id,
+                    username: m.users.username,
+                    display_name: m.users.display_name ?? null,
+                    profile_picture_url: m.users.profile_picture_url ?? null
+                }
+                : null
+        }));
+
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: {
+                convoy: convoySummary(convoy),
+                my_membership: {
+                    role: membership.role,
+                    status: membership.status,
+                    joined_at: membership.joined_at,
+                    left_at: membership.left_at || null,
+                    distance_km: membership.distance_km ?? 0
+                },
+                members: mappedMembers
+            }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to get convoy details',
+            data: null
+        });
+    }
+};
+
 export const joinByCode = async (req, res) => {
     try {
         const code = String(req.body.code || '').trim().toUpperCase();
