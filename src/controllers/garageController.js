@@ -1,4 +1,5 @@
 import * as vehicleModel from '../models/vehicleModel.js';
+import { refreshGarageVehicleCount } from '../services/gamificationService.js';
 
 /**
  * GET /api/garage – list current user's vehicles (primary first)
@@ -48,6 +49,8 @@ export const addVehicle = async (req, res) => {
             image_url,
             is_primary
         });
+
+        void refreshGarageVehicleCount(req.user.id);
 
         return res.status(201).json({
             success: true,
@@ -142,6 +145,7 @@ export const deleteVehicle = async (req, res) => {
         }
 
         await vehicleModel.remove(vehicle.id, req.user.id);
+        void refreshGarageVehicleCount(req.user.id);
         return res.status(200).json({
             success: true,
             status: 'OK',

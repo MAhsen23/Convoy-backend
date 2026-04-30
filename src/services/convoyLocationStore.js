@@ -49,6 +49,12 @@ export const recordLocationUpdate = (convoyId, userId, username, { lat, lng, hea
     return { deltaKm, distance_km, row };
 };
 
+export const getMemberDistanceKm = (convoyId, userId) => {
+    const b = buckets.get(convoyId);
+    const row = b?.get(userId);
+    return row?.distance_km ?? 0;
+};
+
 export const removeMemberFromLocationStore = (convoyId, userId) => {
     const b = buckets.get(convoyId);
     if (!b) return;

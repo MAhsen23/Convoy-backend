@@ -345,6 +345,16 @@ export const setConvoyMembersDistanceKm = async (convoyId, rows) => {
     }
 };
 
+export const setMemberDistanceKm = async (convoyId, userId, distanceKm) => {
+    const km = Math.round(Math.max(0, Number(distanceKm) || 0) * 1000) / 1000;
+    const { error } = await db
+        .from('convoy_members')
+        .update({ distance_km: km })
+        .eq('convoy_id', convoyId)
+        .eq('user_id', userId);
+    if (error) throw new Error(error.message);
+};
+
 export const endConvoy = async (convoyId) => {
     const now = new Date().toISOString();
     const { data, error } = await db

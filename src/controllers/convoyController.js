@@ -7,9 +7,11 @@ import { emitToConvoyExceptUsers, emitToUser, emitToUsers } from '../socket/io.j
 import {
     clearConvoyLocationBucket,
     getMergedMemberLocations,
+    getMemberDistanceKm,
     removeMemberFromLocationStore,
     takeFinalRideStatsForActiveMembers
 } from '../services/convoyLocationStore.js';
+import { processConvoyEnded } from '../services/gamificationService.js';
 
 const persistMemberDistancesAndClearBucket = async (convoyId, rideStats) => {
     try {
@@ -491,6 +493,8 @@ export const leaveConvoy = async (req, res) => {
                 data: null
             });
         }
+        const km = getMemberDistanceKm(convoyId, req.user.id);
+        await convoyModel.setMemberDistanceKm(convoyId, req.user.id, km);
         await convoyModel.leaveConvoy(convoyId, req.user.id);
         removeMemberFromLocationStore(convoyId, req.user.id);
         const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
@@ -536,6 +540,7 @@ export const endConvoy = async (req, res) => {
         const rideStats = takeFinalRideStatsForActiveMembers(convoyId, activeMembers);
         const convoy = await convoyModel.endConvoy(convoyId);
         await persistMemberDistancesAndClearBucket(convoyId, rideStats);
+        void processConvoyEnded(convoyId);
         emitToUsers(otherMemberUserIds, 'convoy:ended', {
             convoy_id: convoyId,
             ended_by: req.user.id,
@@ -621,6 +626,7 @@ export const updateConvoyStatus = async (req, res) => {
             const rideStats = takeFinalRideStatsForActiveMembers(convoyId, activeMembers);
             const ended = await convoyModel.endConvoy(convoyId);
             await persistMemberDistancesAndClearBucket(convoyId, rideStats);
+            void processConvoyEnded(convoyId);
             emitToUsers(otherMemberUserIds, 'convoy:ended', {
                 convoy_id: convoyId,
                 ended_by: req.user.id,
