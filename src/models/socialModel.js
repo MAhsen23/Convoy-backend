@@ -9,14 +9,14 @@ export const searchUsers = async (query, currentUserId, limit = 20) => {
     const numeric = parseInt(q, 10);
     let builder = db
         .from('users')
-        .select('id, unique_id, username, profile_picture_url, status')
+        .select('id, unique_id, username, display_name, profile_picture_url, status')
         .neq('id', currentUserId)
         .limit(limit);
 
     if (Number.isInteger(numeric) && numeric >= 1000000 && numeric <= 9999999) {
-        builder = builder.or(`unique_id.eq.${numeric},username.ilike.%${q}%`);
+        builder = builder.or(`unique_id.eq.${numeric},username.ilike.%${q}%,display_name.ilike.%${q}%`);
     } else {
-        builder = builder.ilike('username', `%${q}%`);
+        builder = builder.or(`username.ilike.%${q}%,display_name.ilike.%${q}%`);
     }
 
     const { data, error } = await builder.order('username', { ascending: true });
@@ -165,7 +165,7 @@ export const getUsersByIds = async (ids) => {
     const unique = [...new Set(ids)];
     const { data, error } = await db
         .from('users')
-        .select('id, unique_id, username, profile_picture_url, status')
+        .select('id, unique_id, username, display_name, profile_picture_url, status')
         .in('id', unique);
     if (error) throw new Error(error.message);
     return data || [];
@@ -230,7 +230,7 @@ export const getSuggestedUsers = async (currentUserId, limit = 4) => {
 
     const { data, error } = await db
         .from('users')
-        .select('id, unique_id, username, profile_picture_url, status')
+        .select('id, unique_id, username, display_name, profile_picture_url, status')
         .not('id', 'in', `(${excludeIds.join(',')})`)
         .order('created_at', { ascending: false })
         .limit(limit * 3);
@@ -252,7 +252,7 @@ export const getSuggestedUsers = async (currentUserId, limit = 4) => {
 export const getUserProfile = async (targetId, viewerId) => {
     const { data: user, error: userError } = await db
         .from('users')
-        .select('id, unique_id, username, profile_picture_url, status, created_at')
+        .select('id, unique_id, username, display_name, profile_picture_url, status, created_at')
         .eq('id', targetId)
         .single();
 

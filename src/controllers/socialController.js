@@ -7,6 +7,7 @@ const toPublicUser = (u) => ({
     id: u.id,
     unique_id: u.unique_id,
     username: u.username,
+    display_name: u.display_name || null,
     profile_picture_url: u.profile_picture_url,
     status: u.status
 });

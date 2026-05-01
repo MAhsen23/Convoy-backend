@@ -92,7 +92,7 @@ export const getOrCreateDirectConversation = async (currentUserId, otherUserId) 
 
     const { data: otherUser, error: userError } = await db
         .from('users')
-        .select('id, username, profile_picture_url, status')
+        .select('id, username, display_name, profile_picture_url, status')
         .eq('id', counterpartUserId)
         .single();
 
@@ -142,6 +142,7 @@ export const getOrCreateDirectConversation = async (currentUserId, otherUserId) 
         other_user: {
             id: otherUser.id,
             username: otherUser.username,
+            display_name: otherUser.display_name || null,
             profile_picture_url: otherUser.profile_picture_url,
             status: ['online', 'driving', 'in_convoy', 'offline'].includes(otherUser.status)
                 ? otherUser.status
@@ -199,6 +200,7 @@ export const listUserConversations = async (userId) => {
             ? {
                 id: r.other_user_id,
                 username: r.other_username,
+                display_name: r.other_display_name || null,
                 profile_picture_url: r.other_profile_picture_url,
                 status: ['online', 'driving', 'in_convoy', 'offline'].includes(r.other_status)
                     ? r.other_status
@@ -263,7 +265,7 @@ export const createMessageWithSender = async (
 
     const { data: sender, error: senderError } = await db
         .from('users')
-        .select('id, username, profile_picture_url, status')
+        .select('id, username, display_name, profile_picture_url, status')
         .eq('id', senderId)
         .single();
     if (senderError) throw new Error(senderError.message);
