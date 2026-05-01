@@ -146,6 +146,7 @@ export const createUser = async (payload) => {
         email,
         phone,
         password_hash,
+        display_name,
         profile_picture_url,
         status = 'offline'
     } = payload;
@@ -157,6 +158,7 @@ export const createUser = async (payload) => {
             email: email ? email.trim().toLowerCase() : null,
             phone: phone || null,
             password_hash: password_hash || null,
+            display_name: display_name || null,
             profile_picture_url: profile_picture_url || null,
             status
         })

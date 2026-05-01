@@ -45,7 +45,7 @@ export const sendOtp = async (req, res) => {
  */
 export const register = async (req, res) => {
     try {
-        const { email, code, username, password } = req.body;
+        const { email, code, username, password, display_name } = req.body;
         if (!email || !code || !username || !password) {
             return res.status(400).json({
                 success: false,
@@ -99,7 +99,8 @@ export const register = async (req, res) => {
         const user = await userModel.createUser({
             username: validation.username,
             email: email.trim().toLowerCase(),
-            password_hash
+            password_hash,
+            display_name: display_name?.trim() || null
         });
 
         const token = generateToken(user);
