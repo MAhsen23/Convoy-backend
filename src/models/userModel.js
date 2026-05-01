@@ -199,6 +199,19 @@ export const updateUser = async (userId, updates) => {
 };
 
 /**
+ * Delete user account
+ */
+export const deleteUser = async (userId) => {
+    const { error } = await db
+        .from('users')
+        .delete()
+        .eq('id', userId);
+
+    if (error) throw new Error(error.message);
+    return true;
+};
+
+/**
  * Return safe public profile (no password_hash, no internal ids if needed)
  */
 export const toPublicProfile = (user) => {

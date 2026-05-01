@@ -302,12 +302,13 @@ export const getProfileByUniqueId = async (req, res) => {
 
 /**
  * PATCH /api/auth/profile
- * Body: { username?, profile_picture_url?, status?, udid?, device_info?, push_token? }
+ * Body: { username?, display_name?, profile_picture_url?, status?, udid?, device_info?, push_token? }
  */
 export const updateProfile = async (req, res) => {
     try {
-        const { username, profile_picture_url, status, udid, device_info, push_token } = req.body;
+        const { username, display_name, profile_picture_url, status, udid, device_info, push_token } = req.body;
         const updates = {};
+        if (display_name !== undefined) updates.display_name = display_name;
         if (profile_picture_url !== undefined) updates.profile_picture_url = profile_picture_url;
         if (udid !== undefined) updates.udid = udid;
         if (device_info !== undefined) updates.device_info = device_info;
@@ -368,6 +369,30 @@ export const updateProfile = async (req, res) => {
             success: false,
             status: 'ERROR',
             message: err.message || 'Failed to update profile',
+            data: null
+        });
+    }
+};
+
+/**
+ * DELETE /api/auth/profile
+ * Requires: Authorization header
+ * Deletes the user account and all associated data (via cascade).
+ */
+export const deleteAccount = async (req, res) => {
+    try {
+        await userModel.deleteUser(req.user.id);
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            message: 'Account has been deleted',
+            data: null
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to delete account',
             data: null
         });
     }

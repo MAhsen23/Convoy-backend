@@ -15,5 +15,6 @@ router.get('/profile/:uniqueId', authController.getProfileByUniqueId);
 
 router.get('/me', authenticate, authController.getMe);
 router.patch('/profile', authenticate, authController.updateProfile);
+router.delete('/profile', authenticate, authController.deleteAccount);
 
 export default router;
