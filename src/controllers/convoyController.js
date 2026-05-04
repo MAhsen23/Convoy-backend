@@ -377,7 +377,34 @@ export const getConvoyDetails = async (req, res) => {
         }
 
         const members = await convoyModel.listMembersAnyStatus(convoyId);
-        const mappedMembers = (members || []).map((m) => ({
+
+        const uniqueMembersMap = new Map();
+        for (const m of (members || [])) {
+            const existing = uniqueMembersMap.get(m.user_id);
+            if (!existing) {
+                uniqueMembersMap.set(m.user_id, { ...m });
+            } else {
+                if (new Date(m.joined_at) < new Date(existing.joined_at)) {
+                    existing.joined_at = m.joined_at;
+                }
+                if (existing.left_at !== null) {
+                    if (m.left_at === null) {
+                        existing.left_at = null;
+                        existing.status = m.status;
+                        existing.role = m.role;
+                    } else if (new Date(m.left_at) > new Date(existing.left_at)) {
+                        existing.left_at = m.left_at;
+                        existing.status = m.status;
+                        existing.role = m.role;
+                    }
+                }
+                existing.distance_km = Math.max(existing.distance_km || 0, m.distance_km || 0);
+            }
+        }
+
+        const deduplicatedMembers = Array.from(uniqueMembersMap.values());
+
+        const mappedMembers = deduplicatedMembers.map((m) => ({
             user_id: m.user_id,
             role: m.role,
             status: m.status,
@@ -395,17 +422,36 @@ export const getConvoyDetails = async (req, res) => {
                 : null
         }));
 
+        let convoyDuration = 0;
+        if (convoy.started_at && convoy.ended_at) {
+            convoyDuration = Math.round((new Date(convoy.ended_at).getTime() - new Date(convoy.started_at).getTime()) / 60000);
+        }
+
+        const myDeduplicatedMembership = uniqueMembersMap.get(req.user.id) || membership;
+        let myDuration = 0;
+        if (myDeduplicatedMembership.joined_at && myDeduplicatedMembership.left_at) {
+            myDuration = Math.round((new Date(myDeduplicatedMembership.left_at).getTime() - new Date(myDeduplicatedMembership.joined_at).getTime()) / 60000);
+        }
+
+        const leaderMember = mappedMembers.find(m => m.user_id === convoy.created_by) || mappedMembers.find(m => m.role === 'leader');
+
         return res.status(200).json({
             success: true,
             status: 'OK',
             data: {
-                convoy: convoySummary(convoy),
+                convoy: {
+                    ...convoySummary(convoy),
+                    duration_minutes: Math.max(0, convoyDuration),
+                    created_by_user: leaderMember ? leaderMember.user : null
+                },
+                unique_members_count: deduplicatedMembers.length,
                 my_membership: {
-                    role: membership.role,
-                    status: membership.status,
-                    joined_at: membership.joined_at,
-                    left_at: membership.left_at || null,
-                    distance_km: membership.distance_km ?? 0
+                    role: myDeduplicatedMembership.role,
+                    status: myDeduplicatedMembership.status,
+                    joined_at: myDeduplicatedMembership.joined_at,
+                    left_at: myDeduplicatedMembership.left_at || null,
+                    distance_km: myDeduplicatedMembership.distance_km ?? 0,
+                    duration_minutes: Math.max(0, myDuration)
                 },
                 members: mappedMembers
             }

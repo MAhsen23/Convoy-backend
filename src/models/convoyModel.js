@@ -171,6 +171,8 @@ export const getMember = async (convoyId, userId) => {
         .eq('convoy_id', convoyId)
         .eq('user_id', userId)
         .eq('status', 'active')
+        .order('id', { ascending: false })
+        .limit(1)
         .maybeSingle();
     if (error) throw new Error(error.message);
     return data;
@@ -182,6 +184,8 @@ export const getMemberAnyStatus = async (convoyId, userId) => {
         .select('*')
         .eq('convoy_id', convoyId)
         .eq('user_id', userId)
+        .order('id', { ascending: false })
+        .limit(1)
         .maybeSingle();
     if (error) throw new Error(error.message);
     return data;
