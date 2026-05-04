@@ -263,7 +263,7 @@ export const listUserEndedConvoyHistory = async (userId, limit = 20, offset = 0)
         )
         .eq('user_id', userId)
         .eq('convoys.status', 'ended')
-        .order('ended_at', { foreignTable: 'convoys', ascending: false })
+        .order('left_at', { ascending: false })
         .range(safeOffset, safeOffset + safeLimit - 1);
     if (error) throw new Error(error.message);
 
