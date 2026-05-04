@@ -252,26 +252,41 @@ export const listMembersAnyStatus = async (convoyId) => {
     return data || [];
 };
 
-export const listUserEndedConvoyHistory = async (userId, limit = 20, offset = 0) => {
+export const listUserEndedConvoyHistory = async (userId, limit = 20, offset = 0, filter = 'all') => {
     const safeLimit = Math.min(Math.max(limit, 1), 50);
     const safeOffset = Math.max(offset, 0);
 
-    const { data, error } = await db
+    let query = db
         .from('convoy_members')
         .select(
             'convoy_id, role, status, joined_at, left_at, distance_km, convoys!inner(id, code, name, icon_url, created_by, status, max_members, started_at, ended_at, created_at, destination_lat, destination_lng, destination_name, destination_address, destination_place_id, destination_updated_at)'
         )
         .eq('user_id', userId)
-        .eq('convoys.status', 'ended')
-        .order('left_at', { ascending: false })
-        .range(safeOffset, safeOffset + safeLimit - 1);
-    if (error) throw new Error(error.message);
+        .eq('convoys.status', 'ended');
 
-    const { count, error: countErr } = await db
+    let countQuery = db
         .from('convoy_members')
         .select('id, convoys!inner(id)', { count: 'exact', head: true })
         .eq('user_id', userId)
         .eq('convoys.status', 'ended');
+
+    if (filter === 'leader') {
+        query = query.eq('role', 'leader');
+        countQuery = countQuery.eq('role', 'leader');
+    } else if (filter === 'member') {
+        query = query.eq('role', 'member');
+        countQuery = countQuery.eq('role', 'member');
+    } else if (filter === 'long_runs') {
+        query = query.gte('distance_km', 50);
+        countQuery = countQuery.gte('distance_km', 50);
+    }
+
+    const { data, error } = await query
+        .order('left_at', { ascending: false })
+        .range(safeOffset, safeOffset + safeLimit - 1);
+    if (error) throw new Error(error.message);
+
+    const { count, error: countErr } = await countQuery;
     if (countErr) throw new Error(countErr.message);
 
     const rows = data || [];
@@ -302,18 +317,55 @@ export const listUserEndedConvoyHistory = async (userId, limit = 20, offset = 0)
     }
 
     return {
-        convoys: convoys.map((x) => ({
-            ...x.convoy,
-            member_count: memberCountByConvoyId[x.convoy.id] || 0,
-            my_role: x.membership.role,
-            my_membership_status: x.membership.status,
-            my_joined_at: x.membership.joined_at,
-            my_left_at: x.membership.left_at,
-            my_distance_km: x.membership.distance_km
-        })),
+        convoys: convoys.map((x) => {
+            let duration_minutes = 0;
+            if (x.convoy.started_at && x.convoy.ended_at) {
+                duration_minutes = Math.round((new Date(x.convoy.ended_at).getTime() - new Date(x.convoy.started_at).getTime()) / 60000);
+            } else if (x.membership.joined_at && x.membership.left_at) {
+                duration_minutes = Math.round((new Date(x.membership.left_at).getTime() - new Date(x.membership.joined_at).getTime()) / 60000);
+            }
+            return {
+                ...x.convoy,
+                member_count: memberCountByConvoyId[x.convoy.id] || 0,
+                my_role: x.membership.role,
+                my_membership_status: x.membership.status,
+                my_joined_at: x.membership.joined_at,
+                my_left_at: x.membership.left_at,
+                my_distance_km: x.membership.distance_km,
+                duration_minutes: Math.max(0, duration_minutes)
+            };
+        }),
         total: count || 0,
         limit: safeLimit,
         offset: safeOffset
+    };
+};
+
+export const getUserConvoyStats = async (userId) => {
+    const { data, error } = await db
+        .from('convoy_members')
+        .select('role, distance_km, convoys!inner(status)')
+        .eq('user_id', userId)
+        .eq('convoys.status', 'ended');
+    if (error) throw new Error(error.message);
+
+    let totalConvoys = 0;
+    let totalDistance = 0;
+    let asLeader = 0;
+    let asMember = 0;
+
+    for (const row of data || []) {
+        totalConvoys++;
+        totalDistance += (row.distance_km || 0);
+        if (row.role === 'leader') asLeader++;
+        else if (row.role === 'member') asMember++;
+    }
+
+    return {
+        total_convoys: totalConvoys,
+        total_distance_km: Math.round(totalDistance * 100) / 100,
+        as_leader: asLeader,
+        as_member: asMember
     };
 };
 

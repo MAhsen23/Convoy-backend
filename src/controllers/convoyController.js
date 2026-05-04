@@ -284,10 +284,12 @@ export const listConvoyHistory = async (req, res) => {
     try {
         const limit = parseInt(req.query.limit || '20', 10);
         const offset = parseInt(req.query.offset || '0', 10);
+        const filter = String(req.query.filter || 'all').toLowerCase();
         const { convoys, total, ...page } = await convoyModel.listUserEndedConvoyHistory(
             req.user.id,
             limit,
-            offset
+            offset,
+            filter
         );
 
         const payload = (convoys || []).map((c) => ({
@@ -297,7 +299,8 @@ export const listConvoyHistory = async (req, res) => {
             my_membership_status: c.my_membership_status,
             my_joined_at: c.my_joined_at,
             my_left_at: c.my_left_at,
-            my_distance_km: c.my_distance_km ?? 0
+            my_distance_km: c.my_distance_km ?? 0,
+            duration_minutes: c.duration_minutes ?? 0
         }));
 
         return res.status(200).json({
@@ -318,6 +321,24 @@ export const listConvoyHistory = async (req, res) => {
             success: false,
             status: 'ERROR',
             message: err.message || 'Failed to list convoy history',
+            data: null
+        });
+    }
+};
+
+export const getUserConvoyStats = async (req, res) => {
+    try {
+        const stats = await convoyModel.getUserConvoyStats(req.user.id);
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: stats
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to get convoy stats',
             data: null
         });
     }
