@@ -5,6 +5,10 @@ import { verifyToken } from '../utils/jwt.js';
 import { getUserById } from '../models/userModel.js';
 import { getConvoyById, getMember } from '../models/convoyModel.js';
 import { recordLocationUpdate } from '../services/convoyLocationStore.js';
+import {
+    registerHazardSocketHandlers,
+    onHazardSocketDisconnect
+} from './hazardHandlers.js';
 import { createSocketEventLog } from '../models/socketEventLogModel.js';
 
 let ioInstance = null;
@@ -221,6 +225,7 @@ export const initSocket = (httpServer) => {
         });
 
         socket.on('disconnect', (reason) => {
+            onHazardSocketDisconnect(socket.id);
             queueSocketLog({
                 direction: 'system',
                 event_name: 'socket:disconnected',
