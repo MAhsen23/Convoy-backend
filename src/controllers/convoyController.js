@@ -9,9 +9,11 @@ import {
     getMergedMemberLocations,
     getMemberDistanceKm,
     removeMemberFromLocationStore,
+    takeAllRouteCoordinatesForConvoy,
     takeFinalRideStatsForActiveMembers
 } from '../services/convoyLocationStore.js';
 import { processConvoyEnded } from '../services/gamificationService.js';
+import * as driveRecapService from '../services/driveRecapService.js';
 
 const persistMemberDistancesAndClearBucket = async (convoyId, rideStats) => {
     try {
@@ -20,6 +22,39 @@ const persistMemberDistancesAndClearBucket = async (convoyId, rideStats) => {
         console.error('[convoy] distance_km persist failed', { convoyId, message: err.message });
     } finally {
         clearConvoyLocationBucket(convoyId);
+    }
+};
+
+const finalizeConvoyEnd = async (convoyId, endedConvoy, routeByUserId = {}) => {
+    const allMembers = await convoyModel.listMembersAnyStatus(convoyId);
+
+    let gamificationByUserId = {};
+    try {
+        const gam = await processConvoyEnded(convoyId);
+        gamificationByUserId = gam?.byUserId || {};
+    } catch (err) {
+        console.error('[convoy] gamification process failed', { convoyId, message: err.message });
+    }
+
+    try {
+        const recaps = await driveRecapService.createDriveRecapsForConvoy(
+            convoyId,
+            endedConvoy,
+            allMembers,
+            routeByUserId,
+            gamificationByUserId
+        );
+        for (const recap of recaps) {
+            emitToUser(recap.user_id, 'drive:recap_ready', {
+                convoy_id: convoyId,
+                recap_id: recap.id,
+                distance_km: recap.distance_km,
+                duration_minutes: recap.duration_minutes,
+                xp_earned: recap.xp_earned
+            });
+        }
+    } catch (err) {
+        console.error('[convoy] drive recap creation failed', { convoyId, message: err.message });
     }
 };
 
@@ -604,11 +639,18 @@ export const endConvoy = async (req, res) => {
         const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
             .filter((id) => id !== req.user.id);
         const activeMembers = await convoyModel.listMembers(convoyId);
+        const allMembers = await convoyModel.listMembersAnyStatus(convoyId);
         const rideStats = takeFinalRideStatsForActiveMembers(convoyId, activeMembers);
+        const routeByUserId = takeAllRouteCoordinatesForConvoy(convoyId, allMembers);
         const convoy = await convoyModel.endConvoy(convoyId);
         await persistMemberDistancesAndClearBucket(convoyId, rideStats);
-        void processConvoyEnded(convoyId);
+        void finalizeConvoyEnd(convoyId, convoy, routeByUserId);
         emitToUsers(otherMemberUserIds, 'convoy:ended', {
+            convoy_id: convoyId,
+            ended_by: req.user.id,
+            ended_at: convoy?.ended_at || new Date().toISOString()
+        });
+        emitToUser(req.user.id, 'convoy:ended', {
             convoy_id: convoyId,
             ended_by: req.user.id,
             ended_at: convoy?.ended_at || new Date().toISOString()
@@ -617,13 +659,97 @@ export const endConvoy = async (req, res) => {
             success: true,
             status: 'OK',
             message: 'Convoy ended',
-            data: { convoy: convoySummary(convoy) }
+            data: {
+                convoy: convoySummary(convoy),
+                recap_available: true,
+                recap_url: `/api/convoys/${convoyId}/recap`
+            }
         });
     } catch (err) {
         return res.status(500).json({
             success: false,
             status: 'ERROR',
             message: err.message || 'Failed to end convoy',
+            data: null
+        });
+    }
+};
+
+export const getDriveRecap = async (req, res) => {
+    try {
+        const convoyId = parseInt(req.params.id, 10);
+        if (!Number.isInteger(convoyId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid convoy id',
+                data: null
+            });
+        }
+
+        const recap = await driveRecapService.getDriveRecap(convoyId, req.user.id);
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: { recap }
+        });
+    } catch (err) {
+        const status = err.statusCode || 500;
+        return res.status(status).json({
+            success: false,
+            status: status >= 500 ? 'ERROR' : 'FAIL',
+            message: err.message || 'Failed to get drive recap',
+            data: null
+        });
+    }
+};
+
+export const uploadDriveRoute = async (req, res) => {
+    try {
+        const convoyId = parseInt(req.params.id, 10);
+        if (!Number.isInteger(convoyId)) {
+            return res.status(400).json({
+                success: false,
+                status: 'ERROR',
+                message: 'Invalid convoy id',
+                data: null
+            });
+        }
+
+        const coordinates = req.body?.coordinates;
+        const recap = await driveRecapService.uploadRouteCoordinates(convoyId, req.user.id, coordinates);
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            message: 'Route uploaded',
+            data: { recap }
+        });
+    } catch (err) {
+        const status = err.statusCode || 500;
+        return res.status(status).json({
+            success: false,
+            status: status >= 500 ? 'ERROR' : 'FAIL',
+            message: err.message || 'Failed to upload route',
+            data: null
+        });
+    }
+};
+
+export const listDriveRecaps = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit || '20', 10);
+        const offset = parseInt(req.query.offset || '0', 10);
+        const { recaps, pagination } = await driveRecapService.listUserRecaps(req.user.id, limit, offset);
+        return res.status(200).json({
+            success: true,
+            status: 'OK',
+            data: { recaps, pagination }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            status: 'ERROR',
+            message: err.message || 'Failed to list drive recaps',
             data: null
         });
     }
@@ -690,11 +816,18 @@ export const updateConvoyStatus = async (req, res) => {
             const otherMemberUserIds = (await convoyModel.listActiveMemberUserIds(convoyId))
                 .filter((id) => id !== req.user.id);
             const activeMembers = await convoyModel.listMembers(convoyId);
+            const allMembers = await convoyModel.listMembersAnyStatus(convoyId);
             const rideStats = takeFinalRideStatsForActiveMembers(convoyId, activeMembers);
+            const routeByUserId = takeAllRouteCoordinatesForConvoy(convoyId, allMembers);
             const ended = await convoyModel.endConvoy(convoyId);
             await persistMemberDistancesAndClearBucket(convoyId, rideStats);
-            void processConvoyEnded(convoyId);
+            void finalizeConvoyEnd(convoyId, ended, routeByUserId);
             emitToUsers(otherMemberUserIds, 'convoy:ended', {
+                convoy_id: convoyId,
+                ended_by: req.user.id,
+                ended_at: ended?.ended_at || new Date().toISOString()
+            });
+            emitToUser(req.user.id, 'convoy:ended', {
                 convoy_id: convoyId,
                 ended_by: req.user.id,
                 ended_at: ended?.ended_at || new Date().toISOString()
@@ -703,7 +836,11 @@ export const updateConvoyStatus = async (req, res) => {
                 success: true,
                 status: 'OK',
                 message: 'Convoy ended',
-                data: { convoy: convoySummary(ended) }
+                data: {
+                    convoy: convoySummary(ended),
+                    recap_available: true,
+                    recap_url: `/api/convoys/${convoyId}/recap`
+                }
             });
         }
 

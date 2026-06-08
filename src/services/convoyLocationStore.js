@@ -1,8 +1,13 @@
 import { haversineKm } from '../utils/haversine.js';
 const MAX_SEGMENT_KM = Number(process.env.CONVOY_LOCATION_MAX_SEGMENT_KM || 5);
+const ROUTE_MIN_SEGMENT_KM = Number(process.env.DRIVE_ROUTE_MIN_SEGMENT_KM || 0.05);
+const ROUTE_MAX_POINTS = Number(process.env.DRIVE_ROUTE_MAX_POINTS || 2000);
 
 /** @type {Map<number, Map<number, object>>} */
 const buckets = new Map();
+
+/** @type {Map<number, Map<number, Array<{ lat: number, lng: number, recorded_at: string }>>>} */
+const routeBuckets = new Map();
 
 const getBucket = (convoyId) => {
     let b = buckets.get(convoyId);
@@ -11,6 +16,46 @@ const getBucket = (convoyId) => {
         buckets.set(convoyId, b);
     }
     return b;
+};
+
+const getRouteBucket = (convoyId) => {
+    let b = routeBuckets.get(convoyId);
+    if (!b) {
+        b = new Map();
+        routeBuckets.set(convoyId, b);
+    }
+    return b;
+};
+
+const appendRoutePoint = (convoyId, userId, lat, lng, recordedAt) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const bucket = getRouteBucket(convoyId);
+    let points = bucket.get(userId);
+    if (!points) {
+        points = [];
+        bucket.set(userId, points);
+    }
+    const last = points[points.length - 1];
+    if (last) {
+        const d = haversineKm(last.lat, last.lng, lat, lng);
+        if (d < ROUTE_MIN_SEGMENT_KM) return;
+    }
+    points.push({ lat, lng, recorded_at: recordedAt });
+    if (points.length > ROUTE_MAX_POINTS) {
+        bucket.set(userId, downsampleRoutePoints(points, ROUTE_MAX_POINTS));
+    }
+};
+
+const downsampleRoutePoints = (points, maxPoints) => {
+    if (points.length <= maxPoints) return points;
+    const step = Math.ceil(points.length / maxPoints);
+    const out = [];
+    for (let i = 0; i < points.length; i += step) {
+        out.push(points[i]);
+    }
+    const last = points[points.length - 1];
+    if (out[out.length - 1] !== last) out.push(last);
+    return out;
 };
 
 /**
@@ -46,6 +91,9 @@ export const recordLocationUpdate = (convoyId, userId, username, { lat, lng, hea
         distance_km
     };
     bucket.set(userId, row);
+    if (!prev || deltaKm > 0) {
+        appendRoutePoint(convoyId, userId, lat, lng, now);
+    }
     return { deltaKm, distance_km, row };
 };
 
@@ -110,6 +158,42 @@ export const takeFinalRideStatsForActiveMembers = (convoyId, activeMembers) => {
     });
 };
 
+export const getRouteCoordinatesForUser = (convoyId, userId) => {
+    const b = routeBuckets.get(convoyId);
+    const points = b?.get(userId);
+    return points ? [...points] : [];
+};
+
+/**
+ * @param {number} convoyId
+ * @param {Array<{ user_id?: number, users?: { id?: number } }>} members
+ */
+export const takeAllRouteCoordinatesForConvoy = (convoyId, members) => {
+    const b = routeBuckets.get(convoyId) || new Map();
+    const out = {};
+    for (const m of members || []) {
+        const userId = m.user_id ?? m.users?.id;
+        if (!Number.isInteger(userId)) continue;
+        const points = b.get(userId);
+        out[userId] = points ? [...points] : [];
+    }
+    return out;
+};
+
+export const setRouteCoordinatesForUser = (convoyId, userId, coordinates) => {
+    if (!Array.isArray(coordinates) || coordinates.length === 0) return;
+    const bucket = getRouteBucket(convoyId);
+    const normalized = coordinates
+        .map((p) => ({
+            lat: Number(p.lat),
+            lng: Number(p.lng),
+            recorded_at: p.recorded_at ? String(p.recorded_at) : new Date().toISOString()
+        }))
+        .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+    bucket.set(userId, downsampleRoutePoints(normalized, ROUTE_MAX_POINTS));
+};
+
 export const clearConvoyLocationBucket = (convoyId) => {
     buckets.delete(convoyId);
+    routeBuckets.delete(convoyId);
 };

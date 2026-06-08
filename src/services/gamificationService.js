@@ -158,7 +158,17 @@ export const evaluateAndUnlockAchievementsForUser = async (userId) => {
         }
     }
 
-    return { newly_unlocked: newlyUnlocked.map((d) => d.key) };
+    return {
+        newly_unlocked: newlyUnlocked.map((d) => d.key),
+        achievements: newlyUnlocked.map((d) => ({
+            key: d.key,
+            category: d.category,
+            title: d.title,
+            description: d.description || null,
+            badge_icon_url: d.badge_icon_url || null,
+            xp_reward: d.xp_reward || 0
+        }))
+    };
 };
 
 export const refreshGarageVehicleCount = async (userId) => {
@@ -175,6 +185,17 @@ export const refreshGarageVehicleCount = async (userId) => {
     await evaluateAndUnlockAchievementsForUser(userId);
 };
 
+const getXpEarnedForConvoy = async (userId, convoyId) => {
+    const { data, error } = await db
+        .from('xp_events')
+        .select('points')
+        .eq('user_id', userId)
+        .eq('event_key', `convoy_end:${convoyId}:user:${userId}`)
+        .maybeSingle();
+    if (error) throw new Error(error.message);
+    return Number(data?.points) || 0;
+};
+
 export const processConvoyEnded = async (convoyId) => {
     // Pull all membership rows (including left) and apply stats per user.
     const { data: members, error: mErr } = await db
@@ -183,7 +204,23 @@ export const processConvoyEnded = async (convoyId) => {
         .eq('convoy_id', convoyId);
     if (mErr) throw new Error(mErr.message);
 
+    /** @type {Record<number, { xp_earned: number, achievements_unlocked: Array }>} */
+    const byUserId = {};
+
+    const uniqueByUser = new Map();
     for (const m of members || []) {
+        const userId = m.user_id;
+        if (!Number.isInteger(userId)) continue;
+        const existing = uniqueByUser.get(userId);
+        if (!existing) {
+            uniqueByUser.set(userId, { ...m });
+        } else {
+            existing.distance_km = Math.max(existing.distance_km || 0, m.distance_km || 0);
+            if (m.role === 'leader') existing.role = 'leader';
+        }
+    }
+
+    for (const m of uniqueByUser.values()) {
         const userId = m.user_id;
         if (!Number.isInteger(userId)) continue;
 
@@ -210,8 +247,18 @@ export const processConvoyEnded = async (convoyId) => {
             });
         }
 
-        await evaluateAndUnlockAchievementsForUser(userId);
+        const { achievements } = await evaluateAndUnlockAchievementsForUser(userId);
+        const convoyXp = await getXpEarnedForConvoy(userId, convoyId);
+        const achievementXp = (achievements || []).reduce((sum, a) => sum + (a.xp_reward || 0), 0);
+
+        byUserId[userId] = {
+            xp_earned: convoyXp + achievementXp,
+            convoy_xp_earned: convoyXp,
+            achievements_unlocked: achievements || []
+        };
     }
+
+    return { byUserId };
 };
 
 export const getGamificationMe = async (userId) => {
